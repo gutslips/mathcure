@@ -261,9 +261,15 @@ export function Navbar() {
           </div>
         </div>
 
-        {/* 모바일 하단 바 */}
-        <div className="md:hidden flex items-center justify-between py-2 border-t border-slate-100 overflow-x-auto gap-2">
-          {navItems.map((item) => {
+        {/* 모바일 하단 고정 네비게이션 탭바 (md 이상에서는 숨김) */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200 flex items-center justify-around py-2 pb-safe shadow-lg">
+          {[
+            navItems[0], // 대시보드
+            navItems[1], // 연산 진단
+            navItems[2], // 맞춤 문제지
+            navItems[3], // 온라인 풀이
+            navItems[6], // 설정
+          ].map((item) => {
             const Icon = item.icon;
             const isActive =
               item.href === "/"
@@ -274,16 +280,16 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center py-1 px-2 rounded text-[11px] whitespace-nowrap ${
-                  isActive ? "text-slate-900 font-bold" : "text-slate-500"
+                className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-medium transition ${
+                  isActive ? "text-slate-950 font-bold" : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                <Icon className="w-4 h-4 mb-0.5" />
+                <Icon className={`w-5 h-5 mb-0.5 ${isActive ? "stroke-[2.5]" : ""}`} />
                 {item.label}
               </Link>
             );
           })}
-        </div>
+        </nav>
       </div>
     </header>
   );

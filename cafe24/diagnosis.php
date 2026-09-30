@@ -66,22 +66,22 @@ $diag_problems = generate_diagnosis_problems('diag_' . time() . '_' . $active_st
         </div>
 
         <!-- 문제 카드 -->
-        <div class="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center space-y-8 shadow-sm">
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-10 text-center space-y-6 shadow-sm">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium" id="problem-badge">
                 문제 1
             </div>
 
-            <div class="py-4">
-                <div id="question-text" class="text-4xl sm:text-5xl font-mono font-bold text-slate-900 tracking-tight">
+            <div class="py-2 sm:py-4">
+                <div id="question-text" class="text-3xl sm:text-5xl font-mono font-bold text-slate-900 tracking-tight">
                     12 ÷ 3 =
                 </div>
             </div>
 
             <div class="max-w-xs mx-auto">
                 <input type="text" inputmode="numeric" pattern="[0-9]*" id="answer-input" placeholder="답 입력 후 엔터" autocomplete="off"
-                    class="w-full text-center text-3xl font-mono font-bold py-3 px-4 rounded-xl border-2 border-slate-300 focus:border-slate-900 focus:outline-none transition">
-                <div class="mt-4">
-                    <button onclick="submitAnswer()" class="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition">
+                    class="w-full text-center text-2xl sm:text-3xl font-mono font-bold py-3 px-4 rounded-xl border-2 border-slate-300 focus:border-slate-900 focus:outline-none transition">
+                <div class="mt-3">
+                    <button onclick="submitAnswer()" class="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition active:scale-98">
                         확인 (Enter) ➔
                     </button>
                 </div>
@@ -89,19 +89,19 @@ $diag_problems = generate_diagnosis_problems('diag_' . time() . '_' . $active_st
         </div>
 
         <!-- 숫자 키패드 (모바일 및 태블릿 터치 편의용) -->
-        <div class="bg-white border border-slate-200 rounded-xl p-4 max-w-xs mx-auto grid grid-cols-3 gap-2">
+        <div class="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 max-w-xs mx-auto grid grid-cols-3 gap-2 select-none shadow-xs" style="touch-action: manipulation;">
             <?php for ($i = 1; $i <= 9; $i++): ?>
-                <button type="button" onclick="appendDigit('<?php echo $i; ?>')" class="py-3 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-800 font-bold rounded-lg text-lg transition">
+                <button type="button" onclick="appendDigit('<?php echo $i; ?>')" class="py-3.5 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-900 font-bold rounded-xl text-xl transition active:scale-95">
                     <?php echo $i; ?>
                 </button>
             <?php endfor; ?>
-            <button type="button" onclick="clearInput()" class="py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 font-semibold rounded-lg text-sm transition">
+            <button type="button" onclick="clearInput()" class="py-3.5 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-500 font-semibold rounded-xl text-sm transition active:scale-95">
                 지우기
             </button>
-            <button type="button" onclick="appendDigit('0')" class="py-3 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-800 font-bold rounded-lg text-lg transition">
+            <button type="button" onclick="appendDigit('0')" class="py-3.5 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-900 font-bold rounded-xl text-xl transition active:scale-95">
                 0
             </button>
-            <button type="button" onclick="submitAnswer()" class="py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-sm transition">
+            <button type="button" onclick="submitAnswer()" class="py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition active:scale-95 shadow-xs">
                 입력 ↵
             </button>
         </div>

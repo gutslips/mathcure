@@ -28,20 +28,20 @@ $problems = generate_problems_by_type($type, $count, $difficulty);
     </div>
 
     <!-- 연습 문제 카드 -->
-    <div id="practice-card" class="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center space-y-6 shadow-sm">
-        <div id="p-question" class="text-4xl sm:text-5xl font-mono font-bold text-slate-900 tracking-tight py-4">
+    <div id="practice-card" class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-10 text-center space-y-6 shadow-sm">
+        <div id="p-question" class="text-3xl sm:text-5xl font-mono font-bold text-slate-900 tracking-tight py-2 sm:py-4">
             -- ÷ -- =
         </div>
 
         <div class="max-w-xs mx-auto">
             <input type="text" inputmode="numeric" id="practice-input" placeholder="답 입력 후 확인" autocomplete="off"
-                class="w-full text-center text-3xl font-mono font-bold py-3 px-4 rounded-xl border-2 border-slate-300 focus:border-slate-900 focus:outline-none transition">
+                class="w-full text-center text-2xl sm:text-3xl font-mono font-bold py-3 px-4 rounded-xl border-2 border-slate-300 focus:border-slate-900 focus:outline-none transition">
 
             <div class="mt-4 flex gap-2">
-                <button id="submit-btn" onclick="checkPracticeAnswer()" class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition">
+                <button id="submit-btn" onclick="checkPracticeAnswer()" class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition active:scale-98">
                     정답 확인 (Enter)
                 </button>
-                <button id="next-btn" onclick="nextPracticeProblem()" class="hidden flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-sm transition">
+                <button id="next-btn" onclick="nextPracticeProblem()" class="hidden flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition active:scale-98 shadow-sm">
                     다음 문제 ➔
                 </button>
             </div>
@@ -49,6 +49,24 @@ $problems = generate_problems_by_type($type, $count, $difficulty);
 
         <!-- 피드백 메시지 박스 -->
         <div id="feedback-box" class="hidden p-4 rounded-xl text-sm font-semibold"></div>
+
+        <!-- 모바일 가상 키패드 -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-w-xs mx-auto grid grid-cols-3 gap-2 select-none" style="touch-action: manipulation;">
+            <?php for ($i = 1; $i <= 9; $i++): ?>
+                <button type="button" onclick="appendPracticeDigit('<?php echo $i; ?>')" class="py-3 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-900 font-bold rounded-xl text-lg transition active:scale-95 shadow-2xs">
+                    <?php echo $i; ?>
+                </button>
+            <?php endfor; ?>
+            <button type="button" onclick="clearPracticeInput()" class="py-3 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-500 font-semibold rounded-xl text-xs transition active:scale-95 shadow-2xs">
+                지우기
+            </button>
+            <button type="button" onclick="appendPracticeDigit('0')" class="py-3 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-900 font-bold rounded-xl text-lg transition active:scale-95 shadow-2xs">
+                0
+            </button>
+            <button type="button" onclick="onKeypadAction()" class="py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition active:scale-95 shadow-xs">
+                확인 ↵
+            </button>
+        </div>
     </div>
 
     <!-- 결과 화면 (모든 문제 종료 시 표시) -->
@@ -117,6 +135,26 @@ function loadPractice(index) {
     feedback.innerHTML = '';
 
     problemStartTime = Date.now();
+}
+
+function appendPracticeDigit(digit) {
+    if (isAnswerChecked) return;
+    const input = document.getElementById('practice-input');
+    input.value += digit;
+}
+
+function clearPracticeInput() {
+    if (isAnswerChecked) return;
+    const input = document.getElementById('practice-input');
+    input.value = '';
+}
+
+function onKeypadAction() {
+    if (!isAnswerChecked) {
+        checkPracticeAnswer();
+    } else {
+        nextPracticeProblem();
+    }
 }
 
 function checkPracticeAnswer() {

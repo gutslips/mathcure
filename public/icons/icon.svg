@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)"/>
+  
+  <!-- Outer border ring -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#334155" stroke-width="4"/>
+  
+  <!-- Division Symbol / MC Monogram -->
+  <g fill="#ffffff">
+    <!-- M -->
+    <path d="M 120 330 V 190 H 155 L 195 270 L 235 190 H 270 V 330 H 235 V 240 L 195 315 L 155 240 V 330 Z"/>
+    <!-- C -->
+    <path d="M 390 225 C 375 200 350 185 320 185 C 275 185 240 220 240 260 C 240 300 275 335 320 335 C 350 335 375 320 390 295 L 360 275 C 350 290 338 300 320 300 C 295 300 275 282 275 260 C 275 238 295 220 320 220 C 338 220 350 230 360 245 Z" fill="#38bdf8"/>
+  </g>
+
+  <!-- Accent Division dots -->
+  <circle cx="256" cy="120" r="22" fill="#10b981"/>
+  <rect x="220" y="380" width="72" height="18" rx="9" fill="#10b981"/>
+  <circle cx="256" cy="430" r="16" fill="#10b981"/>
+</svg>
