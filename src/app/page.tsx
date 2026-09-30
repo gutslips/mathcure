@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateDefaultStudent } from "@/lib/student";
+import { getActiveStudent } from "@/lib/student";
 import { 
   Play, 
   FileText, 
@@ -15,7 +15,7 @@ import { PROBLEM_TYPE_LABELS, ProblemType } from "@/types/problem";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const student = await getOrCreateDefaultStudent();
+  const student = await getActiveStudent();
 
   // 최근 진단 기록 가져오기
   const latestDiagnosis = await prisma.diagnosis.findFirst({

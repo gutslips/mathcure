@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   Calculator, 
   FileText, 
@@ -9,11 +10,106 @@ import {
   History as HistoryIcon, 
   Layers, 
   Settings as SettingsIcon,
-  Home
+  Home,
+  ChevronDown,
+  UserPlus,
+  Check,
+  User
 } from "lucide-react";
+
+interface StudentInfo {
+  id: string;
+  name: string;
+  grade: number;
+}
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const [activeStudent, setActiveStudent] = useState<StudentInfo | null>(null);
+  const [students, setStudents] = useState<StudentInfo[]>([]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newGrade, setNewGrade] = useState(5);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 학생 목록 및 현재 활성 학생 로드
+  const fetchStudentData = () => {
+    fetch("/api/student")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.activeStudent) {
+          setActiveStudent(data.activeStudent);
+        }
+        if (data.students) {
+          setStudents(data.students);
+        }
+      })
+      .catch((err) => console.error("학생 정보 로드 실패:", err));
+  };
+
+  useEffect(() => {
+    fetchStudentData();
+  }, [pathname]);
+
+  // 바깥 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+        setIsAdding(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // 학생 전환
+  const handleSwitchStudent = async (studentId: string) => {
+    try {
+      const res = await fetch("/api/student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "switch", id: studentId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveStudent(data.activeStudent);
+        setDropdownOpen(false);
+        router.refresh();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // 새 학생 생성
+  const handleCreateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+
+    try {
+      const res = await fetch("/api/student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", name: newName.trim(), grade: newGrade }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveStudent(data.activeStudent);
+        setStudents(data.students);
+        setNewName("");
+        setIsAdding(false);
+        setDropdownOpen(false);
+        router.refresh();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const navItems = [
     { href: "/", label: "대시보드", icon: Home },
@@ -70,11 +166,100 @@ export function Navbar() {
             })}
           </nav>
 
-          <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="font-semibold text-slate-900">홍길동</span>
-            <span className="text-slate-400">|</span>
-            <span>초등학교 5학년</span>
+          {/* 다중 학생 전환 드롭다운 */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              className="flex items-center gap-2 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 transition"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="font-bold text-slate-900">
+                {activeStudent ? activeStudent.name : "학생 선택"}
+              </span>
+              <span className="text-slate-400">|</span>
+              <span>초{activeStudent ? activeStudent.grade : 5}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-3 py-2 border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                  <span>등록된 학생 목록</span>
+                  <span className="text-slate-500 font-mono">{students.length}명</span>
+                </div>
+
+                <div className="max-h-52 overflow-y-auto py-1 space-y-1">
+                  {students.map((st) => {
+                    const isSelected = activeStudent?.id === st.id;
+                    return (
+                      <button
+                        key={st.id}
+                        onClick={() => handleSwitchStudent(st.id)}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${
+                          isSelected
+                            ? "bg-slate-100 font-bold text-slate-900"
+                            : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <User className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{st.name}</span>
+                          <span className="text-[11px] text-slate-400">(초{st.grade})</span>
+                        </div>
+                        {isSelected && <Check className="w-4 h-4 text-emerald-600" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* 새 학생 등록 폼 */}
+                {!isAdding ? (
+                  <button
+                    onClick={() => setIsAdding(true)}
+                    className="w-full mt-2 pt-2 border-t border-slate-100 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    새 학생 추가
+                  </button>
+                ) : (
+                  <form onSubmit={handleCreateStudent} className="mt-2 pt-2 border-t border-slate-100 space-y-2">
+                    <input
+                      type="text"
+                      placeholder="새 학생 이름"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900"
+                      autoFocus
+                    />
+                    <div className="flex gap-1.5">
+                      <select
+                        value={newGrade}
+                        onChange={(e) => setNewGrade(Number(e.target.value))}
+                        className="text-xs border border-slate-300 rounded-md px-2 py-1 bg-white"
+                      >
+                        <option value={3}>초3</option>
+                        <option value={4}>초4</option>
+                        <option value={5}>초5</option>
+                        <option value={6}>초6</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="flex-1 bg-slate-900 text-white rounded-md text-xs font-semibold py-1 hover:bg-slate-800"
+                      >
+                        추가
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAdding(false)}
+                        className="px-2 bg-slate-100 text-slate-600 rounded-md text-xs hover:bg-slate-200"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

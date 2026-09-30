@@ -39,6 +39,24 @@ function DiagnosisResultContent() {
   });
 
   const [loading, setLoading] = useState(!analysis);
+  const [studentInfo, setStudentInfo] = useState<{ name: string; grade: number }>({
+    name: "학생",
+    grade: 5,
+  });
+
+  useEffect(() => {
+    fetch("/api/student")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.activeStudent) {
+          setStudentInfo({
+            name: data.activeStudent.name,
+            grade: data.activeStudent.grade,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (analysis) return;
@@ -154,7 +172,7 @@ function DiagnosisResultContent() {
               초5 나눗셈 연산 역량 진단 및 맞춤 처방 리포트
             </h1>
             <p className="text-xs text-slate-600 mt-1">
-              학생: 홍길동 · 초등학교 5학년 · 진단일: {todayStr}
+              학생: {studentInfo.name} · 초등학교 {studentInfo.grade}학년 · 진단일: {todayStr}
             </p>
           </div>
           <div className="text-right">

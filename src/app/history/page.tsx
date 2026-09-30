@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateDefaultStudent } from "@/lib/student";
+import { getActiveStudent } from "@/lib/student";
 import { 
   Clock, 
   Target, 
@@ -11,7 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
-  const student = await getOrCreateDefaultStudent();
+  const student = await getActiveStudent();
 
   const diagnoses = await prisma.diagnosis.findMany({
     where: { studentId: student.id },

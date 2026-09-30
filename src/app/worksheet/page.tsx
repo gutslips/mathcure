@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ProblemType } from "@/types/problem";
 import { generateWorksheet } from "@/lib/worksheet/generator";
@@ -22,6 +22,18 @@ function WorksheetContent() {
   const [includeTimerRecord, setIncludeTimerRecord] = useState(true);
   const [activeTab, setActiveTab] = useState<"worksheet" | "answers">("worksheet");
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // 현재 활성 학생 이름 로드
+  useEffect(() => {
+    fetch("/api/student")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.activeStudent?.name) {
+          setStudentName(data.activeStudent.name);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // useMemo로 렌더링 중 계산 (setState in effect 방지)
   const worksheet = useMemo(() => {
