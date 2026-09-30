@@ -29,6 +29,8 @@ function PracticeContent() {
 
   const problemStartTime = useRef<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const nextBtnRef = useRef<HTMLButtonElement>(null);
+  const isTransitioningRef = useRef<boolean>(false);
 
   // 마운트 시 문제 풀이 시작 시점 기록
   useEffect(() => {
@@ -44,6 +46,7 @@ function PracticeContent() {
     setResults([]);
     setShowHint(false);
     problemStartTime.current = Date.now();
+    isTransitioningRef.current = false;
   };
 
   const handleTypeChange = (newType: ProblemType) => {
@@ -56,22 +59,34 @@ function PracticeContent() {
     loadSet(type, newDiff);
   };
 
+  // 피드백 여부에 따라 적절한 요소에 포커스
   useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
+    if (feedback) {
+      if (nextBtnRef.current) {
+        nextBtnRef.current.focus();
+      }
+    } else {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   }, [currentIndex, feedback]);
 
-  const handleSubmitAnswer = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!problems[currentIndex] || feedback) return;
+  const handleSubmitAnswer = () => {
+    if (!problems[currentIndex] || feedback || isTransitioningRef.current) return;
+
+    const trimmed = inputValue.trim();
+    // 빈 문자열인 경우 채점을 진행하지 않음 (엔터 연타 시 자동 오답 방어)
+    if (trimmed === "") return;
+
+    const userNum = Number(trimmed);
+    if (isNaN(userNum)) return;
 
     const prob = problems[currentIndex];
     const now = Date.now();
     const start = problemStartTime.current || now - 1000;
     const elapsedMs = Math.max(100, now - start);
     const elapsedSec = Number((elapsedMs / 1000).toFixed(1));
-    const userNum = Number(inputValue.trim());
     const isCorrect = userNum === prob.answer;
 
     setResults((prev) => [...prev, { correct: isCorrect, elapsedMs }]);
@@ -88,12 +103,38 @@ function PracticeContent() {
   };
 
   const handleNextProblem = () => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
     setFeedback(null);
     setInputValue("");
     setShowHint(false);
+
     if (currentIndex < problems.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       problemStartTime.current = Date.now();
+    }
+
+    // 다음 문제로 넘어간 직후 200ms 동안은 엔터키 연타로 인한 즉시 제출 방지
+    setTimeout(() => {
+      isTransitioningRef.current = false;
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 200);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmitAnswer();
+    }
+  };
+
+  const handleNextButtonKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleNextProblem();
     }
   };
 
@@ -157,13 +198,14 @@ function PracticeContent() {
               {problems[currentIndex].question} <span className="text-slate-400 font-light">=</span>
             </div>
 
-            <form onSubmit={handleSubmitAnswer} className="max-w-xs mx-auto space-y-4">
+            <div className="max-w-xs mx-auto space-y-4">
               <input
                 ref={inputRef}
                 type="number"
                 disabled={Boolean(feedback)}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleInputKeyDown}
                 placeholder="답 입력 후 Enter"
                 className="w-full text-center text-3xl font-bold font-mono py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-slate-900"
                 autoFocus
@@ -171,22 +213,26 @@ function PracticeContent() {
 
               {!feedback ? (
                 <button
-                  type="submit"
-                  className="w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition"
+                  type="button"
+                  onClick={handleSubmitAnswer}
+                  disabled={inputValue.trim() === ""}
+                  className="w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  확인
+                  확인 (Enter)
                 </button>
               ) : (
                 <button
+                  ref={nextBtnRef}
                   type="button"
                   onClick={handleNextProblem}
+                  onKeyDown={handleNextButtonKeyDown}
                   className="w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition"
                   autoFocus
                 >
-                  다음 문제 ➔
+                  다음 문제 (Enter) ➔
                 </button>
               )}
-            </form>
+            </div>
 
             {/* 피드백 알림 */}
             {feedback && (
