@@ -2,11 +2,19 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/student.php';
 
 $pdo = get_db();
 if (!$pdo) {
     echo json_encode(['success' => false, 'error' => 'DB 연결 실패']);
+    exit;
+}
+
+$user = get_logged_in_user($pdo);
+if (!$user || $user['status'] !== 'approved') {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => '로그인이 필요합니다.']);
     exit;
 }
 
@@ -18,7 +26,7 @@ if (!$data && !empty($_POST)) {
 }
 
 try {
-    $active_student = get_active_student($pdo);
+    $active_student = get_active_student($pdo, $user['id']);
     $studentId = $active_student['id'];
 
     $total = (int)($data['total'] ?? 0);

@@ -68,14 +68,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         </div>
 
         <?php if ($success_message): ?>
-            <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm">
-                <div class="font-bold mb-1">🎉 <?php echo $success_message; ?></div>
-                <p class="text-xs text-emerald-700 mt-2">
-                    접두사(<code><?php echo htmlspecialchars($db_prefix); ?></code>)가 적용된 5개 테이블이 자동 생성되었습니다.
+            <div class="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-sm space-y-3">
+                <div class="font-bold text-base">🎉 <?php echo $success_message; ?></div>
+                <p class="text-xs text-emerald-700 leading-relaxed">
+                    접두사(<code><?php echo htmlspecialchars($db_prefix); ?></code>)가 적용된 6개 테이블(회원, 학생, 진단, 답안, 연습, 문제지)이 자동 생성되었습니다.
                 </p>
-                <div class="mt-4">
-                    <a href="index.php" class="block w-full text-center py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg text-sm transition">
-                        연산 트레이너 시작하기 ➔
+                <div class="p-3 bg-white rounded-xl border border-emerald-200 text-xs text-slate-700 space-y-1">
+                    <div class="font-bold text-slate-900">🛡️ 최고 관리자 기본 계정 안내</div>
+                    <div>• 관리자 아이디: <strong class="font-mono text-slate-900">admin</strong></div>
+                    <div>• 관리자 비밀번호: <strong class="font-mono text-slate-900">admin1234!</strong></div>
+                    <div class="text-[11px] text-slate-500 pt-1">로그인 후 [내 정보] 메뉴에서 비밀번호를 꼭 변경해 주세요.</div>
+                </div>
+                <div class="pt-2">
+                    <a href="login.php" class="block w-full text-center py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition">
+                        로그인 화면으로 이동 ➔
                     </a>
                 </div>
             </div>

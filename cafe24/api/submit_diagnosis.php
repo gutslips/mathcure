@@ -2,12 +2,20 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/student.php';
 require_once __DIR__ . '/../lib/diagnosis.php';
 
 $pdo = get_db();
 if (!$pdo) {
     echo json_encode(['success' => false, 'error' => 'DB 연결 실패']);
+    exit;
+}
+
+$user = get_logged_in_user($pdo);
+if (!$user || $user['status'] !== 'approved') {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => '로그인이 필요합니다.']);
     exit;
 }
 
@@ -24,7 +32,7 @@ try {
         throw new Exception('제출된 답안이 없습니다.');
     }
 
-    $active_student = get_active_student($pdo);
+    $active_student = get_active_student($pdo, $user['id']);
     $studentId = $active_student['id'];
 
     $startedAt = !empty($data['startedAt']) ? date('Y-m-d H:i:s', strtotime($data['startedAt'])) : date('Y-m-d H:i:s');

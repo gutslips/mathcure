@@ -46,15 +46,32 @@ function table($name) {
 }
 
 /**
- * 테이블 자동 생성 함수 (설치 마법사 및 부팅 시 사용)
+ * 테이블 자동 생성 및 스키마 마이그레이션 함수
  */
 function auto_install_tables(PDO $pdo, $prefix = 'mc_') {
     $sql = "
+    CREATE TABLE IF NOT EXISTS `{$prefix}users` (
+        `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+        `username` VARCHAR(50) NOT NULL UNIQUE,
+        `password_hash` VARCHAR(255) NOT NULL,
+        `name` VARCHAR(50) NOT NULL,
+        `phone` VARCHAR(30) NOT NULL,
+        `affiliation` VARCHAR(100) NULL,
+        `role` ENUM('admin', 'user') NOT NULL DEFAULT 'user',
+        `status` ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+        INDEX (`status`),
+        INDEX (`role`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
     CREATE TABLE IF NOT EXISTS `{$prefix}students` (
         `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+        `user_id` VARCHAR(36) NULL,
         `name` VARCHAR(50) NOT NULL,
         `grade` INT NOT NULL DEFAULT 5,
-        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX (`user_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
     CREATE TABLE IF NOT EXISTS `{$prefix}diagnoses` (
@@ -116,12 +133,31 @@ function auto_install_tables(PDO $pdo, $prefix = 'mc_') {
 
     $pdo->exec($sql);
 
-    // 기본 학생 등록 (존재하지 않을 시)
-    $stmt = $pdo->query("SELECT COUNT(*) FROM `{$prefix}students`");
+    // 기존 students 테이블에 user_id 컬럼이 없을 경우 대비 마이그레이션
+    try {
+        $pdo->exec("ALTER TABLE `{$prefix}students` ADD COLUMN `user_id` VARCHAR(36) NULL AFTER `id`, ADD INDEX (`user_id`)");
+    } catch (Exception $e) {
+        // 이미 존재하면 무시
+    }
+
+    // 기본 관리자 계정 생성 (존재하지 않을 시)
+    $stmt = $pdo->query("SELECT COUNT(*) FROM `{$prefix}users` WHERE `role` = 'admin'");
     if ($stmt->fetchColumn() == 0) {
-        $default_id = 'std_' . bin2hex(random_bytes(8));
-        $insert = $pdo->prepare("INSERT INTO `{$prefix}students` (`id`, `name`, `grade`) VALUES (?, ?, ?)");
-        $insert->execute([$default_id, '홍길동', 5]);
+        $admin_id = 'usr_admin_' . bin2hex(random_bytes(4));
+        $admin_hash = password_hash('admin1234!', PASSWORD_BCRYPT);
+        $insertAdmin = $pdo->prepare("
+            INSERT INTO `{$prefix}users`
+            (`id`, `username`, `password_hash`, `name`, `phone`, `affiliation`, `role`, `status`)
+            VALUES (?, ?, ?, ?, ?, ?, 'admin', 'approved')
+        ");
+        $insertAdmin->execute([
+            $admin_id,
+            'admin',
+            $admin_hash,
+            '최고관리자',
+            '010-0000-0000',
+            '본부'
+        ]);
     }
 
     return true;
