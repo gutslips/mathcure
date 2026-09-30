@@ -48,7 +48,7 @@ function table($name) {
 /**
  * 테이블 자동 생성 및 스키마 마이그레이션 함수
  */
-function auto_install_tables(PDO $pdo, $prefix = 'mc_') {
+function auto_install_tables(PDO $pdo, $prefix = 'mc_', $admin_data = null) {
     $sql = "
     CREATE TABLE IF NOT EXISTS `{$prefix}users` (
         `id` VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -140,24 +140,32 @@ function auto_install_tables(PDO $pdo, $prefix = 'mc_') {
         // 이미 존재하면 무시
     }
 
-    // 기본 관리자 계정 생성 (존재하지 않을 시)
-    $stmt = $pdo->query("SELECT COUNT(*) FROM `{$prefix}users` WHERE `role` = 'admin'");
-    if ($stmt->fetchColumn() == 0) {
+    // 관리자 계정 생성 또는 비밀번호 업데이트
+    $admin_user = !empty($admin_data['username']) ? trim($admin_data['username']) : 'admin';
+    $admin_pass = !empty($admin_data['password']) ? $admin_data['password'] : 'admin1234!';
+    $admin_name = !empty($admin_data['name']) ? trim($admin_data['name']) : '최고관리자';
+    $admin_phone = !empty($admin_data['phone']) ? trim($admin_data['phone']) : '010-0000-0000';
+    $admin_hash = password_hash($admin_pass, PASSWORD_BCRYPT);
+
+    $stmt = $pdo->prepare("SELECT `id` FROM `{$prefix}users` WHERE `username` = ? OR `role` = 'admin'");
+    $stmt->execute([$admin_user]);
+    $existingAdmin = $stmt->fetch();
+
+    if ($existingAdmin) {
+        $updateAdmin = $pdo->prepare("
+            UPDATE `{$prefix}users` 
+            SET `username` = ?, `password_hash` = ?, `name` = ?, `phone` = ?, `role` = 'admin', `status` = 'approved'
+            WHERE `id` = ?
+        ");
+        $updateAdmin->execute([$admin_user, $admin_hash, $admin_name, $admin_phone, $existingAdmin['id']]);
+    } else {
         $admin_id = 'usr_admin_' . bin2hex(random_bytes(4));
-        $admin_hash = password_hash('admin1234!', PASSWORD_BCRYPT);
         $insertAdmin = $pdo->prepare("
             INSERT INTO `{$prefix}users`
             (`id`, `username`, `password_hash`, `name`, `phone`, `affiliation`, `role`, `status`)
-            VALUES (?, ?, ?, ?, ?, ?, 'admin', 'approved')
+            VALUES (?, ?, ?, ?, ?, '본부', 'admin', 'approved')
         ");
-        $insertAdmin->execute([
-            $admin_id,
-            'admin',
-            $admin_hash,
-            '최고관리자',
-            '010-0000-0000',
-            '본부'
-        ]);
+        $insertAdmin->execute([$admin_id, $admin_user, $admin_hash, $admin_name, $admin_phone]);
     }
 
     return true;
