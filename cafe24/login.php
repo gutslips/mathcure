@@ -93,10 +93,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </a>
             </div>
         </form>
-
-        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-500 leading-relaxed">
-            <strong>관리자 계정 안내:</strong> 최초 기본 관리자 아이디는 <code>admin</code> / 비밀번호는 <code>admin1234!</code> 입니다. 로그인 후 비밀번호를 변경해 주세요.
-        </div>
     </div>
 </body>
 </html>
