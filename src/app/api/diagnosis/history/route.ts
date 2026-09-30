@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateDefaultStudent } from "@/lib/student";
+import { getActiveStudent } from "@/lib/student";
 
 export async function GET() {
   try {
-    const student = await getOrCreateDefaultStudent();
+    const student = await getActiveStudent();
 
     const diagnoses = await prisma.diagnosis.findMany({
       where: { studentId: student.id },

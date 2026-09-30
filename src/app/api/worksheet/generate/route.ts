@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateDefaultStudent } from "@/lib/student";
+import { getActiveStudent } from "@/lib/student";
 import { generateWorksheet } from "@/lib/worksheet/generator";
 import { WorksheetConfig } from "@/types/worksheet";
 
 export async function POST(request: Request) {
   try {
     const config: WorksheetConfig = await request.json();
-    const student = await getOrCreateDefaultStudent();
+    const student = await getActiveStudent();
 
     const worksheet = generateWorksheet({
       ...config,

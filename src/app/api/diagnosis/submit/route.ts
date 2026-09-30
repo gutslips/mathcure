@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateDefaultStudent } from "@/lib/student";
+import { getActiveStudent } from "@/lib/student";
 import { analyzeDiagnosis } from "@/lib/diagnosis/analyzer";
 import { DiagnosisAnswerInput } from "@/types/diagnosis";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { answers, startedAt, finishedAt } = body;
+    const { answers, startedAt, finishedAt, studentId } = body;
 
     if (!Array.isArray(answers) || answers.length === 0) {
       return NextResponse.json(
@@ -16,7 +16,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const student = await getOrCreateDefaultStudent();
+    let student = null;
+    if (studentId) {
+      student = await prisma.student.findUnique({ where: { id: studentId } });
+    }
+    if (!student) {
+      student = await getActiveStudent();
+    }
 
     // 채점 및 답안 표준화
     const scoredAnswers: DiagnosisAnswerInput[] = answers.map((ans: Record<string, unknown>) => {

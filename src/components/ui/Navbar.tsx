@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { 
   Calculator, 
   FileText, 
@@ -25,7 +25,6 @@ interface StudentInfo {
 
 export function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
 
   const [activeStudent, setActiveStudent] = useState<StudentInfo | null>(null);
   const [students, setStudents] = useState<StudentInfo[]>([]);
@@ -77,9 +76,9 @@ export function Navbar() {
       });
       const data = await res.json();
       if (data.success) {
-        setActiveStudent(data.activeStudent);
+        sessionStorage.removeItem("lastDiagnosisAnalysis");
         setDropdownOpen(false);
-        router.refresh();
+        window.location.reload();
       }
     } catch (e) {
       console.error(e);
@@ -99,12 +98,11 @@ export function Navbar() {
       });
       const data = await res.json();
       if (data.success) {
-        setActiveStudent(data.activeStudent);
-        setStudents(data.students);
+        sessionStorage.removeItem("lastDiagnosisAnalysis");
         setNewName("");
         setIsAdding(false);
         setDropdownOpen(false);
-        router.refresh();
+        window.location.reload();
       }
     } catch (e) {
       console.error(e);
