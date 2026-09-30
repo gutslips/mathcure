@@ -1,0 +1,82 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Student {
+  id        String   @id @default(cuid())
+  name      String
+  grade     Int
+  createdAt DateTime @default(now())
+
+  diagnoses Diagnosis[]
+  practices PracticeSession[]
+}
+
+model Problem {
+  id          String   @id @default(cuid())
+  question    String
+  answer      Int
+  type        String
+  difficulty  Int
+  createdAt   DateTime @default(now())
+}
+
+model Diagnosis {
+  id          String   @id @default(cuid())
+  studentId   String
+  total       Int
+  correct     Int
+  accuracy    Float
+  averageMs   Float
+  startedAt   DateTime
+  finishedAt  DateTime
+
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers     DiagnosisAnswer[]
+}
+
+model DiagnosisAnswer {
+  id          String   @id @default(cuid())
+  diagnosisId String
+  question    String
+  answer      Int
+  userAnswer  Int?
+  correct     Boolean
+  elapsedMs   Int
+  type        String
+  difficulty  Int
+
+  diagnosis Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+}
+
+model PracticeSession {
+  id          String   @id @default(cuid())
+  studentId   String
+  worksheetId String?
+  total       Int
+  correct     Int
+  accuracy    Float
+  averageMs   Float
+  startedAt   DateTime
+  finishedAt  DateTime
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Worksheet {
+  id          String   @id @default(cuid())
+  studentId   String?
+  title       String
+  subject     String
+  grade       Int
+  difficulty  Int
+  problemType String
+  count       Int
+  seed        String
+  createdAt   DateTime @default(now())
+}

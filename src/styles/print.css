@@ -1,0 +1,52 @@
+@page {
+  size: A4 portrait;
+  margin: 12mm 15mm;
+}
+
+@media print {
+  html, body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 14pt;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 인쇄 시 감출 요소 */
+  .no-print,
+  nav,
+  header.app-header,
+  footer.app-footer,
+  button,
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* 인쇄 전용 표시 요소 */
+  .print-only {
+    display: block !important;
+  }
+
+  /* 페이지 나누기 제어 */
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .worksheet-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+}
