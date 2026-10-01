@@ -68,12 +68,18 @@ function ensure_schema_updated(PDO $pdo) {
                 `results` LONGTEXT NULL,
                 `started_at` DATETIME NULL,
                 `submitted_at` DATETIME NULL,
+                `expires_at` DATETIME NULL,
                 `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 INDEX (`code`),
                 INDEX (`status`),
+                INDEX (`expires_at`),
                 INDEX (`worksheet_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
+    } catch (Exception $e) {}
+
+    try {
+        $pdo->exec("ALTER TABLE `{$prefix}exams` ADD COLUMN `expires_at` DATETIME NULL AFTER `submitted_at`, ADD INDEX (`expires_at`)");
     } catch (Exception $e) {}
 }
 

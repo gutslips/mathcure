@@ -134,6 +134,12 @@ if (!$exam) {
     die("<!DOCTYPE html><html lang='ko' class='bg-slate-950 text-white'><head><meta charset='UTF-8'><title>오류</title><script src='https://cdn.tailwindcss.com'></script></head><body class='p-12 text-center'><h2 class='text-xl font-bold'>시험을 찾을 수 없습니다.</h2><p class='text-slate-400 text-xs mt-2'>코드를 다시 확인해 주세요.</p><a href='exam.php' class='mt-4 inline-block px-4 py-2 bg-slate-800 rounded-xl text-xs font-bold'>코드 입력으로 돌아가기</a></body></html>");
 }
 
+// 시험 링크 유효기간 만료 체크
+$is_expired = (!empty($exam['expires_at']) && strtotime($exam['expires_at']) < time() && $exam['status'] !== 'completed');
+if ($is_expired) {
+    die("<!DOCTYPE html><html lang='ko' class='bg-slate-950 text-white'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>시험 만료 안내</title><script src='https://cdn.tailwindcss.com'></script></head><body class='min-h-screen flex items-center justify-center p-4 text-center'><div class='max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 space-y-4 shadow-2xl'><div class='w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-3xl mx-auto'>⏰</div><h2 class='text-xl font-bold'>시험 링크 유효기간 만료</h2><p class='text-slate-400 text-xs leading-relaxed'>시험 응시 유효기간이 지났습니다.<br>선생님께 새로운 시험 링크 또는 유효기간 연장을 요청해 주세요.</p><a href='exam.php' class='inline-block mt-4 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold transition'>코드 입력으로 돌아가기</a></div></body></html>");
+}
+
 $problems = json_decode($exam['problems'], true) ?: [];
 $time_limit_sec = (int)$exam['time_limit_sec'];
 $total_count = count($problems);
@@ -367,7 +373,8 @@ function updateTimerDisplay() {
 function renderProblem(index) {
     currentIndex = index;
     const p = problems[index];
-    document.getElementById('q-text').innerText = p.question + " =";
+    const cleanQ = p.question.trim().replace(/\s*=\s*$/, '');
+    document.getElementById('q-text').innerText = cleanQ + " =";
     const disp = document.getElementById('q-answer-display');
     if (answers[index]) {
         disp.innerHTML = "<span class='font-mono'>" + answers[index] + "</span>";

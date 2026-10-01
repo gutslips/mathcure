@@ -100,6 +100,7 @@ model Exam {
   results      String?
   startedAt    DateTime?
   submittedAt  DateTime?
+  expiresAt    DateTime?
   createdAt    DateTime  @default(now())
 
   worksheet    Worksheet? @relation(fields: [worksheetId], references: [id], onDelete: SetNull)

@@ -11,7 +11,9 @@ import {
   Clock, 
   User, 
   Sparkles,
-  Share2
+  Share2,
+  Hourglass,
+  KeyRound
 } from "lucide-react";
 import { Problem } from "@/types/problem";
 
@@ -34,32 +36,67 @@ export function ExamModal({
 }: ExamModalProps) {
   const [title, setTitle] = useState(defaultTitle);
   const [studentName, setStudentName] = useState(defaultStudentName);
-  const [timeLimitSec, setTimeLimitSec] = useState(600); // 10분 기본
+  
+  // 제한 시간 설정 (분 단위 직접 입력 지원)
+  const [timeMode, setTimeMode] = useState<"preset" | "custom">("preset");
+  const [presetTimeSec, setPresetTimeSec] = useState(600); // 10분 기본
+  const [customMinutes, setCustomMinutes] = useState(10);
+
+  // 시험 링크 유효기간 (시간 단위)
+  const [expireMode, setExpireMode] = useState<"preset" | "custom">("preset");
+  const [presetExpireHours, setPresetExpireHours] = useState(3); // 3시간 기본
+  const [customExpireHours, setCustomExpireHours] = useState(3);
+
   const [showResult, setShowResult] = useState(true);
   const [loading, setLoading] = useState(false);
   const [createdExam, setCreatedExam] = useState<{
     code: string;
     id: string;
     title: string;
+    timeLimitSec: number;
+    expiresAt?: string;
   } | null>(null);
+
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
+  const [copiedHub, setCopiedHub] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setTitle(defaultTitle);
       setStudentName(defaultStudentName);
+      setTimeMode("preset");
+      setPresetTimeSec(600);
+      setCustomMinutes(10);
+      setExpireMode("preset");
+      setPresetExpireHours(3);
+      setCustomExpireHours(3);
       setCreatedExam(null);
       setQrDataUrl("");
       setCopiedLink(false);
       setCopiedCode(false);
       setCopiedMsg(false);
+      setCopiedHub(false);
     }
   }, [isOpen, defaultTitle, defaultStudentName]);
 
   if (!isOpen) return null;
+
+  const getEffectiveTimeSec = () => {
+    if (timeMode === "custom") {
+      return Math.max(1, Math.min(180, Number(customMinutes) || 10)) * 60;
+    }
+    return presetTimeSec;
+  };
+
+  const getEffectiveExpireHours = () => {
+    if (expireMode === "custom") {
+      return Math.max(1, Math.min(720, Number(customExpireHours) || 3));
+    }
+    return presetExpireHours;
+  };
 
   const handleCreate = async () => {
     if (!problems || problems.length === 0) {
@@ -67,6 +104,9 @@ export function ExamModal({
       return;
     }
     setLoading(true);
+    const finalTimeSec = getEffectiveTimeSec();
+    const finalExpireHours = getEffectiveExpireHours();
+
     try {
       const res = await fetch("/api/exam", {
         method: "POST",
@@ -75,7 +115,8 @@ export function ExamModal({
           title,
           worksheetId,
           studentName: studentName.trim() || undefined,
-          timeLimitSec,
+          timeLimitSec: finalTimeSec,
+          expireHours: finalExpireHours,
           showResult,
           problems,
         }),
@@ -109,9 +150,10 @@ export function ExamModal({
   };
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const hubUrl = `${origin}/exam`;
   const examUrl = createdExam ? `${origin}/exam/${createdExam.code}` : "";
 
-  const copyToClipboard = (text: string, type: "link" | "code" | "msg") => {
+  const copyToClipboard = (text: string, type: "link" | "code" | "msg" | "hub") => {
     navigator.clipboard.writeText(text);
     if (type === "link") {
       setCopiedLink(true);
@@ -119,6 +161,9 @@ export function ExamModal({
     } else if (type === "code") {
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
+    } else if (type === "hub") {
+      setCopiedHub(true);
+      setTimeout(() => setCopiedHub(false), 2000);
     } else {
       setCopiedMsg(true);
       setTimeout(() => setCopiedMsg(false), 2000);
@@ -126,13 +171,17 @@ export function ExamModal({
   };
 
   const getShareMessage = () => {
-    const minText = timeLimitSec > 0 ? `${timeLimitSec / 60}분` : "무제한";
-    return `[초5 연산 트레이너] 온라인 시험 안내\n\n📌 시험명: ${title}\n⏱️ 제한 시간: ${minText} (${problems.length}문항)\n\n👉 바로 풀기 링크: ${examUrl}\n(또는 mathcure.vercel.app/exam 에서 입장 코드 [ ${createdExam?.code} ] 입력)\n\n태블릿이나 스마트폰, PC로 접속하여 편하게 응시하세요!`;
+    const finalTimeSec = getEffectiveTimeSec();
+    const minText = finalTimeSec > 0 ? `${Math.round(finalTimeSec / 60)}분` : "무제한";
+    const expireHours = getEffectiveExpireHours();
+    const expireText = expireHours > 0 ? `${expireHours}시간 후 만료` : "무제한 (만료 없음)";
+
+    return `[초5 연산 트레이너] 온라인 시험 안내\n\n📌 시험명: ${title}\n⏱️ 제한 시간: ${minText} (${problems.length}문항)\n⏰ 링크 유효기간: ${expireText}\n\n👉 [방법 1] 전용 링크로 바로 입장 (클릭 시 자동 시작):\n${examUrl}\n\n👉 [방법 2] 태블릿/PC 브라우저에서 간편 입장:\n1. 브라우저 주소창에 ${hubUrl} 접속\n2. 6자리 입장 코드 [ ${createdExam?.code} ] 입력 후 시작\n\n👉 [방법 3] 학원 태블릿 카메라로 QR 코드 스캔\n\n편한 방법으로 접속하여 시험을 치러주세요!`;
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150 my-8">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150 my-8 max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition"
@@ -152,7 +201,7 @@ export function ExamModal({
                   온라인 시험 링크 & QR 생성
                 </h3>
                 <p className="text-xs text-slate-500">
-                  선생님 화면 노출 없이 태블릿/스마트폰으로 학생이 바로 응시합니다.
+                  선생님 화면 노출 없이 태블릿/모바일로 학생이 독립 응시합니다.
                 </p>
               </div>
             </div>
@@ -166,20 +215,44 @@ export function ExamModal({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-slate-900 font-medium"
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-slate-900 font-medium"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    제한 시간
+              {/* 시간 제한 (직접 입력 지원) */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-600" />
+                    시험 풀이 시간 제한
                   </label>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setTimeMode("preset")}
+                      className={`px-2 py-0.5 rounded-md font-semibold transition ${
+                        timeMode === "preset" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-200"
+                      }`}
+                    >
+                      목록 선택
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeMode("custom")}
+                      className={`px-2 py-0.5 rounded-md font-semibold transition ${
+                        timeMode === "custom" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-200"
+                      }`}
+                    >
+                      직접 입력
+                    </button>
+                  </div>
+                </div>
+
+                {timeMode === "preset" ? (
                   <select
-                    value={timeLimitSec}
-                    onChange={(e) => setTimeLimitSec(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white focus:outline-none focus:border-slate-900"
+                    value={presetTimeSec}
+                    onChange={(e) => setPresetTimeSec(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-semibold focus:outline-none focus:border-slate-900"
                   >
                     <option value={300}>5분 (스피드 진단)</option>
                     <option value={600}>10분 (표준 20제 권장)</option>
@@ -187,8 +260,85 @@ export function ExamModal({
                     <option value={1200}>20분</option>
                     <option value={0}>무제한 (자율 풀이)</option>
                   </select>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={180}
+                      value={customMinutes}
+                      onChange={(e) => setCustomMinutes(Number(e.target.value))}
+                      placeholder="분 입력"
+                      className="w-24 px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-bold text-center focus:outline-none focus:border-slate-900"
+                    />
+                    <span className="text-xs text-slate-600 font-semibold">분 동안 응시 가능 (1~180분)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 링크 유효기간 (자동 만료 시간) */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Hourglass className="w-3.5 h-3.5 text-slate-600" />
+                    시험 링크 유효기간 (자동 만료)
+                  </label>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setExpireMode("preset")}
+                      className={`px-2 py-0.5 rounded-md font-semibold transition ${
+                        expireMode === "preset" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-200"
+                      }`}
+                    >
+                      목록 선택
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpireMode("custom")}
+                      className={`px-2 py-0.5 rounded-md font-semibold transition ${
+                        expireMode === "custom" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-200"
+                      }`}
+                    >
+                      직접 지정
+                    </button>
+                  </div>
                 </div>
 
+                {expireMode === "preset" ? (
+                  <select
+                    value={presetExpireHours}
+                    onChange={(e) => setPresetExpireHours(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-semibold focus:outline-none focus:border-slate-900"
+                  >
+                    <option value={1}>1시간 후 만료 (즉시 응시용)</option>
+                    <option value={3}>3시간 후 만료 (표준 수업 권장)</option>
+                    <option value={5}>5시간 후 만료</option>
+                    <option value={8}>8시간 후 만료</option>
+                    <option value={24}>24시간 (1일) 후 만료</option>
+                    <option value={0}>무제한 (만료 없음)</option>
+                  </select>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={720}
+                      value={customExpireHours}
+                      onChange={(e) => setCustomExpireHours(Number(e.target.value))}
+                      placeholder="시간 입력"
+                      className="w-24 px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-bold text-center focus:outline-none focus:border-slate-900"
+                    />
+                    <span className="text-xs text-slate-600 font-semibold">시간 후 링크 자동 비활성화</span>
+                  </div>
+                )}
+                <div className="text-[11px] text-slate-400">
+                  * 만료 시 학생 접속이 차단되며, 시험지 원본 데이터는 선생님 서버에 안전하게 보존됩니다.
+                </div>
+              </div>
+
+              {/* 학생 이름 & 결과 공개 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
                     <User className="w-3.5 h-3.5 text-slate-500" />
@@ -199,26 +349,20 @@ export function ExamModal({
                     value={studentName}
                     placeholder="미입력 시 시작 때 입력"
                     onChange={(e) => setStudentName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-slate-900"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-slate-900 text-xs"
                   />
                 </div>
-              </div>
 
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="text-xs font-semibold text-slate-800">
-                  시험 세부 설정
-                </div>
-                <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showResult}
-                    onChange={(e) => setShowResult(e.target.checked)}
-                    className="w-4 h-4 rounded text-slate-900 focus:ring-0"
-                  />
-                  <span>제출 후 학생에게 즉시 점수 및 정오표 공개</span>
-                </label>
-                <div className="text-[11px] text-slate-400">
-                  * 학생이 제출한 결과는 점수 공개 여부와 상관없이 선생님 DB에 즉시 자동 회수됩니다.
+                <div className="flex flex-col justify-end">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer pb-2">
+                    <input
+                      type="checkbox"
+                      checked={showResult}
+                      onChange={(e) => setShowResult(e.target.checked)}
+                      className="w-4 h-4 rounded text-slate-900 focus:ring-0"
+                    />
+                    <span className="font-semibold">제출 후 점수/정오표 즉시 공개</span>
+                  </label>
                 </div>
               </div>
 
@@ -257,37 +401,54 @@ export function ExamModal({
                 {createdExam.title}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                학생에게 아래 QR코드를 보여주거나 링크를 전송하세요.
+                학생에게 코드를 알려주거나 링크를 전송하세요.
               </p>
             </div>
 
-            {/* 6자리 간편 코드 강조 */}
-            <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-sm">
-              <div className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-1">
-                태블릿 / PC 간편 입장 코드
+            {/* 6자리 간편 코드 및 허브 주소 안내 박스 */}
+            <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-sm space-y-3">
+              <div>
+                <div className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-1">
+                  태블릿 / PC 간편 입장 코드
+                </div>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-3xl font-mono font-black tracking-widest text-emerald-400">
+                    {createdExam.code}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(createdExam.code, "code")}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg transition"
+                  >
+                    {copiedCode ? "복사됨!" : "코드 복사"}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center justify-center gap-3">
-                <span className="text-3xl font-mono font-black tracking-widest text-emerald-400">
-                  {createdExam.code}
+
+              {/* 입장 허브 주소 명시 */}
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
+                <span className="flex items-center gap-1 text-[11px]">
+                  <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                  코드 입력 주소: <strong className="font-mono text-white underline underline-offset-2">{hubUrl}</strong>
                 </span>
                 <button
                   type="button"
-                  onClick={() => copyToClipboard(createdExam.code, "code")}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg transition"
+                  onClick={() => copyToClipboard(hubUrl, "hub")}
+                  className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold"
                 >
-                  {copiedCode ? "복사됨!" : "코드 복사"}
+                  {copiedHub ? "주소 복사됨!" : "주소 복사"}
                 </button>
               </div>
             </div>
 
             {/* 태블릿 촬영용 QR 코드 */}
             {qrDataUrl && (
-              <div className="flex flex-col items-center justify-center py-2">
+              <div className="flex flex-col items-center justify-center py-1">
                 <div className="p-3 bg-white border-2 border-slate-200 rounded-2xl shadow-sm inline-block">
                   <img
                     src={qrDataUrl}
                     alt="시험 접속용 QR 코드"
-                    className="w-44 h-44 mx-auto"
+                    className="w-40 h-40 mx-auto"
                   />
                 </div>
                 <span className="text-[11px] text-slate-500 mt-2 flex items-center gap-1 font-medium">
@@ -312,14 +473,14 @@ export function ExamModal({
                   className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl flex items-center gap-1 transition shrink-0"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedLink ? "복사됨" : "링크 복사"}
+                  {copiedLink ? "복사됨" : "전용 링크 복사"}
                 </button>
               </div>
 
               <button
                 type="button"
                 onClick={() => copyToClipboard(getShareMessage(), "msg")}
-                className="w-full py-2 px-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
+                className="w-full py-2.5 px-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
               >
                 <Share2 className="w-3.5 h-3.5 text-slate-500" />
                 {copiedMsg ? "카톡/문자 안내 문구가 복사되었습니다!" : "카카오톡 / 문자 안내 문구 전체 복사"}
@@ -328,13 +489,13 @@ export function ExamModal({
 
             <div className="pt-2 flex gap-2">
               <a
-                href={`/exam/${createdExam.code}`}
+                href={hubUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl text-xs flex items-center justify-center gap-1 transition"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                학생 시험창 새 창 열기
+                <KeyRound className="w-3.5 h-3.5" />
+                코드 입력창 열기
               </a>
               <button
                 type="button"

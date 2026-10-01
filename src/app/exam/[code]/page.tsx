@@ -373,7 +373,7 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
             {/* 문제 카드 */}
             <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 shadow-xl text-center space-y-6">
               <div className="text-3xl sm:text-5xl font-mono font-black text-white tracking-tight">
-                {currentProb.question}{" "}
+                {currentProb.question.replace(/\s*=\s*$/, "")}{" "}
                 <span className="text-slate-500 font-light">=</span>
               </div>
 

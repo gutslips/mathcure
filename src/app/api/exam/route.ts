@@ -27,6 +27,16 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: "시험을 찾을 수 없습니다." }, { status: 404 });
       }
 
+      // 유효기간 만료 체크
+      const isExpired = exam.expiresAt && new Date() > new Date(exam.expiresAt);
+      if (isExpired && !forTeacher && exam.status !== "completed") {
+        return NextResponse.json({
+          success: false,
+          error: "⏰ 시험 응시 유효기간이 만료되었습니다. 선생님께 새로운 시험 링크 또는 연장을 요청해 주세요.",
+          isExpired: true,
+        }, { status: 410 });
+      }
+
       const parsedProblems = JSON.parse(exam.problems || "[]");
 
       // 학생에게 제공할 때는 정답(answer) 및 해설(explanation)을 숨김 (부정행위 방지)
@@ -47,13 +57,14 @@ export async function GET(request: Request) {
           title: exam.title,
           studentName: exam.studentName,
           timeLimitSec: exam.timeLimitSec,
-          status: exam.status,
+          status: isExpired && exam.status === "active" ? "expired" : exam.status,
           showResult: exam.showResult,
           score: exam.score,
           totalCount: exam.totalCount || parsedProblems.length,
           results: exam.results ? JSON.parse(exam.results) : null,
           startedAt: exam.startedAt,
           submittedAt: exam.submittedAt,
+          expiresAt: exam.expiresAt,
           createdAt: exam.createdAt,
           problems: sanitizedProblems,
         },
@@ -89,6 +100,7 @@ export async function POST(request: Request) {
       studentName,
       timeLimitSec = 600,
       showResult = true,
+      expireHours = 3,
       problems = [],
     } = body;
 
@@ -106,6 +118,11 @@ export async function POST(request: Request) {
       attempts++;
     }
 
+    let expiresAt: Date | null = null;
+    if (expireHours && Number(expireHours) > 0) {
+      expiresAt = new Date(Date.now() + Number(expireHours) * 3600 * 1000);
+    }
+
     const exam = await prisma.exam.create({
       data: {
         code,
@@ -117,6 +134,7 @@ export async function POST(request: Request) {
         problems: JSON.stringify(problems),
         showResult: Boolean(showResult),
         totalCount: problems.length,
+        expiresAt,
       },
     });
 
