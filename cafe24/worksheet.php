@@ -143,13 +143,28 @@ if ($id) {
         $stmt = $pdo->prepare("SELECT * FROM `{$t_ws}` WHERE `id` = ?");
         $stmt->execute([$id]);
         $saved_worksheet = $stmt->fetch();
-        if ($saved_worksheet && !empty($saved_worksheet['problems'])) {
-            $problems = json_decode($saved_worksheet['problems'], true);
+        if ($saved_worksheet) {
             $type = $saved_worksheet['problem_type'];
             $difficulty = (int)$saved_worksheet['difficulty'];
             $count = (int)$saved_worksheet['count'];
             $seed = $saved_worksheet['seed'];
             $is_saved_view = true;
+
+            if (!empty($saved_worksheet['problems'])) {
+                $decoded = json_decode($saved_worksheet['problems'], true);
+                if (is_array($decoded) && count($decoded) > 0) {
+                    $problems = $decoded;
+                }
+            }
+
+            // 이전에 problems 컬럼 없이 저장되었던 레코드인 경우, seed로 문제를 생성하여 DB에 영구 동결 저장
+            if (empty($problems)) {
+                $problems = generate_worksheet_problems($type, $count, $difficulty, $seed);
+                try {
+                    $up = $pdo->prepare("UPDATE `{$t_ws}` SET `problems` = ? WHERE `id` = ?");
+                    $up->execute([json_encode($problems), $id]);
+                } catch (Exception $e) {}
+            }
         }
     } catch (Exception $e) {}
 }

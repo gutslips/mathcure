@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveStudent } from "@/lib/student";
 
+import { generateWorksheet } from "@/lib/worksheet/generator";
+import { ProblemType } from "@/types/problem";
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,11 +17,31 @@ export async function GET(request: Request) {
       if (!worksheet) {
         return NextResponse.json({ success: false, error: "문제지를 찾을 수 없습니다." }, { status: 404 });
       }
+
+      let parsedProblems = worksheet.problems ? JSON.parse(worksheet.problems) : [];
+
+      if (!parsedProblems || parsedProblems.length === 0) {
+        const generated = generateWorksheet({
+          studentName: "학생",
+          grade: 5,
+          subject: worksheet.subject || "나눗셈",
+          targetType: (worksheet.problemType as ProblemType) || "divide5",
+          count: worksheet.count || 20,
+          difficulty: worksheet.difficulty || 2,
+          seed: worksheet.seed,
+        });
+        parsedProblems = generated.problems;
+        await prisma.worksheet.update({
+          where: { id },
+          data: { problems: JSON.stringify(parsedProblems) },
+        });
+      }
+
       return NextResponse.json({
         success: true,
         worksheet: {
           ...worksheet,
-          problems: worksheet.problems ? JSON.parse(worksheet.problems) : [],
+          problems: parsedProblems,
         },
       });
     }

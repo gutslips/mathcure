@@ -15,12 +15,27 @@ if ($worksheet_id) {
         $stmt = $pdo->prepare("SELECT * FROM `{$t_ws}` WHERE `id` = ?");
         $stmt->execute([$worksheet_id]);
         $ws_data = $stmt->fetch();
-        if ($ws_data && !empty($ws_data['problems'])) {
-            $decoded = json_decode($ws_data['problems'], true);
-            if (is_array($decoded) && count($decoded) > 0) {
-                $problems = $decoded;
-                $worksheet_title = $ws_data['title'];
-                $type = $ws_data['problem_type'] ?? $type;
+        if ($ws_data) {
+            $worksheet_title = $ws_data['title'];
+            $type = $ws_data['problem_type'] ?? $type;
+            $difficulty = (int)($ws_data['difficulty'] ?? 2);
+            $count = (int)($ws_data['count'] ?? 20);
+            $seed = $ws_data['seed'] ?? 'ws_default';
+
+            if (!empty($ws_data['problems'])) {
+                $decoded = json_decode($ws_data['problems'], true);
+                if (is_array($decoded) && count($decoded) > 0) {
+                    $problems = $decoded;
+                }
+            }
+
+            // 이전에 저장되어 problems가 비어있던 레코드인 경우 seed 기반으로 생성 후 영구 보관
+            if (empty($problems)) {
+                $problems = generate_worksheet_problems($type, $count, $difficulty, $seed);
+                try {
+                    $up = $pdo->prepare("UPDATE `{$t_ws}` SET `problems` = ? WHERE `id` = ?");
+                    $up->execute([json_encode($problems), $worksheet_id]);
+                } catch (Exception $e) {}
             }
         }
     } catch (Exception $e) {}
