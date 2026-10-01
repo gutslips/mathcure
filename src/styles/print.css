@@ -1,10 +1,11 @@
 @page {
   size: A4 portrait;
-  margin: 12mm 15mm;
+  margin: 0 !important;
 }
 
 @media print {
   html, body {
+    width: 210mm !important;
     background-color: #ffffff !important;
     color: #0f172a !important;
     font-size: 14pt;
@@ -12,6 +13,13 @@
     padding: 0 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  main {
+    max-width: 210mm !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* 인쇄 시 감출 요소 */
@@ -40,13 +48,36 @@
     break-inside: avoid;
   }
 
-  .worksheet-sheet {
+  .worksheet-sheet,
+  .a4-sheet {
+    box-sizing: border-box !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 285mm !important;
+    max-height: 290mm !important;
+    height: 287mm !important;
+    margin: 0 auto !important;
+    padding: 13mm 16mm 9mm 16mm !important;
+    background: #ffffff !important;
     box-shadow: none !important;
     border: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: transparent !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .worksheet-sheet:last-of-type,
+  .worksheet-sheet:last-child,
+  .a4-sheet:last-of-type,
+  .a4-sheet:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 }
+

@@ -45,12 +45,157 @@ $pending_count = ($logged_user && $logged_user['role'] === 'admin') ? get_pendin
         /* Safe Area Padding for iOS Devices */
         .pb-safe { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
         
+        /* 브라우저 기본 머리글/바닥글(URL, 날짜, 페이지 번호) 원천 제거: 여백 0 처리 */
+        @page {
+            size: A4 portrait;
+            margin: 0 !important;
+        }
+
         @media print {
-            .no-print { display: none !important; }
-            body { background: white !important; color: black !important; }
-            .print-page { page-break-after: always; break-after: page; }
-            .print-page:last-child { page-break-after: auto; break-after: auto; }
-            @page { size: A4 portrait; margin: 15mm 15mm 15mm 15mm; }
+            /* 브라우저 기본 요소 여백 초기화 */
+            html, body {
+                width: 210mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            /* 메인 레이아웃 패딩 초기화 (모바일 pb-24 등 밀림 방지) */
+            main {
+                max-width: 210mm !important;
+                width: 210mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* A4 용지 규격 (210mm x 297mm) 정확한 1페이지 핏 */
+            .a4-sheet {
+                box-sizing: border-box !important;
+                width: 210mm !important;
+                max-width: 210mm !important;
+                min-height: 285mm !important;
+                max-height: 290mm !important;
+                height: 287mm !important;
+                padding: 13mm 16mm 9mm 16mm !important; /* 문서 자체 여백으로 안전 마진 확보 */
+                margin: 0 auto !important;
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                background: #ffffff !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                overflow: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+            }
+
+            .a4-sheet:last-of-type,
+            .a4-sheet:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+
+            .page-break {
+                display: none !important;
+            }
+
+            /* 문제지 헤더 영역 인쇄 최적화 (모바일에서도 가로 배치 유지) */
+            .sheet-header {
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: space-between !important;
+                align-items: flex-end !important;
+                border-bottom: 2px solid #0f172a !important;
+                padding-bottom: 2.5mm !important;
+                margin-bottom: 3.5mm !important;
+            }
+
+            .sheet-student-info {
+                text-align: right !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: flex-end !important;
+                gap: 1mm !important;
+                font-size: 8.5pt !important;
+            }
+
+            /* 문제 리스트 (모바일 인쇄 시에도 무조건 2열 그리드 강제) */
+            #problems-grid-container {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                column-gap: 12mm !important;
+                row-gap: 4.5mm !important;
+                margin-top: 1.5mm !important;
+                margin-bottom: auto !important;
+            }
+
+            .print-problem-row {
+                display: flex !important;
+                align-items: baseline !important;
+                justify-content: space-between !important;
+                border-bottom: 1px solid #e2e8f0 !important;
+                padding-bottom: 1.5mm !important;
+                font-size: 14pt !important;
+            }
+
+            .print-problem-row .prob-num {
+                font-size: 11pt !important;
+                width: 7mm !important;
+            }
+
+            .print-problem-row .prob-eq {
+                font-size: 15pt !important;
+                font-weight: 700 !important;
+            }
+
+            /* 정답지 (2페이지) 그리드 인쇄 최적화 (4열) */
+            #answers-grid-container {
+                display: grid !important;
+                grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+                gap: 2.5mm !important;
+                margin-top: 3.5mm !important;
+                margin-bottom: 3.5mm !important;
+            }
+
+            .print-answer-item {
+                padding: 2mm 3mm !important;
+                font-size: 10pt !important;
+                border: 1px solid #cbd5e1 !important;
+                background-color: #f8fafc !important;
+                border-radius: 4px !important;
+            }
+
+            .sheet-tip-box {
+                margin-top: 3mm !important;
+                padding: 2.5mm 3.5mm !important;
+                font-size: 8.5pt !important;
+                line-height: 1.4 !important;
+                border: 1px solid #e2e8f0 !important;
+                background-color: #f8fafc !important;
+                border-radius: 6px !important;
+            }
+
+            /* 문제지/정답지 하단 정보 바 */
+            .sheet-footer {
+                border-top: 1px solid #cbd5e1 !important;
+                padding-top: 2.5mm !important;
+                margin-top: auto !important;
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                font-size: 8.5pt !important;
+                color: #64748b !important;
+            }
         }
     </style>
 </head>

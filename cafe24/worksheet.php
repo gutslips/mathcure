@@ -366,7 +366,7 @@ try {
 
 <!-- [1페이지] 문제지 -->
 <div id="worksheet-page-1" class="a4-sheet bg-white p-4 sm:p-12 mb-8 border border-slate-200 sm:rounded-2xl shadow-sm text-slate-900 transition-opacity duration-300">
-    <div class="border-b-2 border-slate-900 pb-3 mb-6 flex flex-col sm:flex-row justify-between sm:items-end gap-3">
+    <div class="sheet-header border-b-2 border-slate-900 pb-3 mb-6 flex flex-col sm:flex-row justify-between sm:items-end gap-3">
         <div>
             <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
                 MATH CURE · 초5 나눗셈 자동화 프로젝트
@@ -379,7 +379,7 @@ try {
             </span>
         </div>
 
-        <div class="flex flex-wrap sm:flex-col sm:text-right gap-x-4 gap-y-1 text-xs">
+        <div class="sheet-student-info flex flex-wrap sm:flex-col sm:text-right gap-x-4 gap-y-1 text-xs">
             <div>
                 <span class="text-slate-500">학생 이름:</span>
                 <span class="font-bold underline underline-offset-4 inline-block min-w-[70px] text-center">
@@ -404,12 +404,12 @@ try {
     <!-- 문제 리스트 (2열 그리드) -->
     <div id="problems-grid-container" class="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-7 my-6 text-base">
         <?php foreach ($problems as $idx => $p): ?>
-            <div class="flex items-baseline justify-between border-b border-slate-200 pb-2">
+            <div class="print-problem-row flex items-baseline justify-between border-b border-slate-200 pb-2">
                 <div class="flex items-baseline gap-2 font-mono">
-                    <span class="font-bold text-slate-400 w-7 text-right text-sm">
+                    <span class="prob-num font-bold text-slate-400 w-7 text-right text-sm">
                         <?php echo $idx + 1; ?>.
                     </span>
-                    <span class="text-lg font-bold text-slate-900 tracking-tight">
+                    <span class="prob-eq text-lg font-bold text-slate-900 tracking-tight">
                         <?php echo htmlspecialchars(rtrim(trim($p['question']), '=')); ?> <span class="font-normal text-slate-400">=</span>
                     </span>
                 </div>
@@ -424,7 +424,7 @@ try {
         <?php endforeach; ?>
     </div>
 
-    <div class="mt-12 pt-4 border-t border-slate-300 flex justify-between items-center text-[11px] text-slate-400">
+    <div class="sheet-footer mt-12 pt-4 border-t border-slate-300 flex justify-between items-center text-[11px] text-slate-400">
         <span>초5 나눗셈 트레이너 · MathCure</span>
         <span id="display-seed-text-1">Seed: <?php echo htmlspecialchars($seed); ?></span>
         <span>Page 1 / 2</span>
@@ -436,7 +436,7 @@ try {
 
 <!-- [2페이지] 정답지 -->
 <div id="worksheet-page-2" class="a4-sheet bg-white p-4 sm:p-12 mb-8 border border-slate-200 sm:rounded-2xl shadow-sm text-slate-900 transition-opacity duration-300">
-    <div class="border-b-2 border-slate-900 pb-3 mb-6 flex flex-col sm:flex-row justify-between sm:items-end gap-3">
+    <div class="sheet-header border-b-2 border-slate-900 pb-3 mb-6 flex flex-col sm:flex-row justify-between sm:items-end gap-3">
         <div>
             <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
                 ANSWER KEY · 정답 및 빠른 채점표
@@ -458,7 +458,7 @@ try {
 
     <div id="answers-grid-container" class="grid grid-cols-2 sm:grid-cols-4 gap-4 my-6">
         <?php foreach ($problems as $idx => $p): ?>
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
+            <div class="print-answer-item p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
                 <span class="font-bold text-slate-500 text-sm font-mono">
                     <?php echo $idx + 1; ?>번
                 </span>
@@ -469,12 +469,12 @@ try {
         <?php endforeach; ?>
     </div>
 
-    <div class="mt-12 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+    <div class="sheet-tip-box mt-12 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
         <strong class="text-slate-800 block mb-1">지도 팁:</strong>
         채점 시 정답 여부뿐만 아니라 15초 이상 지체된 문제에 대해서는 나눗셈 원리(예: ÷5는 2배 후 10 나누기)를 다시 점검해 주세요.
     </div>
 
-    <div class="mt-8 pt-4 border-t border-slate-300 flex justify-between items-center text-[11px] text-slate-400">
+    <div class="sheet-footer mt-8 pt-4 border-t border-slate-300 flex justify-between items-center text-[11px] text-slate-400">
         <span>초5 나눗셈 트레이너 · MathCure 정답지</span>
         <span id="display-seed-text-2">Page 2 / 2</span>
     </div>
@@ -659,11 +659,11 @@ function generateNewProblemsAsync() {
                 data.problems.forEach((p, idx) => {
                     const cleanQ = p.question.trim().replace(/\s*=\s*$/, '');
                     const div = document.createElement('div');
-                    div.className = "flex items-baseline justify-between border-b border-slate-200 pb-2";
+                    div.className = "print-problem-row flex items-baseline justify-between border-b border-slate-200 pb-2";
                     div.innerHTML = `
                         <div class="flex items-baseline gap-2 font-mono">
-                            <span class="font-bold text-slate-400 w-7 text-right text-sm">${idx + 1}.</span>
-                            <span class="text-lg font-bold text-slate-900 tracking-tight">${cleanQ} <span class="font-normal text-slate-400">=</span></span>
+                            <span class="prob-num font-bold text-slate-400 w-7 text-right text-sm">${idx + 1}.</span>
+                            <span class="prob-eq text-lg font-bold text-slate-900 tracking-tight">${cleanQ} <span class="font-normal text-slate-400">=</span></span>
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="inline-block w-24 border-b-2 border-slate-400"></span>
@@ -678,7 +678,7 @@ function generateNewProblemsAsync() {
                 ansContainer.innerHTML = '';
                 data.problems.forEach((p, idx) => {
                     const div = document.createElement('div');
-                    div.className = "p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between";
+                    div.className = "print-answer-item p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between";
                     div.innerHTML = `
                         <span class="font-bold text-slate-500 text-sm font-mono">${idx + 1}번</span>
                         <span class="font-bold text-slate-900 text-lg font-mono">${p.answer}</span>
