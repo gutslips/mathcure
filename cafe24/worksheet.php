@@ -469,9 +469,10 @@ try {
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">난이도</label>
                     <select id="gen-opt-diff" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white">
-                        <option value="1" <?php echo $difficulty === 1 ? 'selected' : ''; ?>>Level 1 (기초)</option>
-                        <option value="2" <?php echo $difficulty === 2 ? 'selected' : ''; ?>>Level 2 (표준)</option>
-                        <option value="3" <?php echo $difficulty === 3 ? 'selected' : ''; ?>>Level 3 (심화)</option>
+                        <option value="1" <?php echo $difficulty === 1 ? 'selected' : ''; ?>>Level 1 (기초/원리)</option>
+                        <option value="2" <?php echo $difficulty === 2 ? 'selected' : ''; ?>>Level 2 (표준 숙달)</option>
+                        <option value="3" <?php echo $difficulty === 3 ? 'selected' : ''; ?>>Level 3 (큰 수 확장)</option>
+                        <option value="4" <?php echo $difficulty === 4 ? 'selected' : ''; ?>>Level 4 (응용 혼합)</option>
                     </select>
                 </div>
 
@@ -1011,61 +1012,82 @@ function generateNewProblemsAsync() {
                 currentWsId = data.id;
                 currentQrUrl = data.qr_url;
 
-                // 타이틀, 서브타이틀 및 일련번호 갱신
-                document.getElementById('top-badge-code').innerText = "#" + data.code;
-                document.getElementById('display-worksheet-code-badge').innerText = "#" + data.code;
-                document.getElementById('display-worksheet-code-text').innerText = "#" + data.code;
-                document.getElementById('display-footer-code').innerText = "#" + data.code;
-                document.getElementById('display-answers-footer-code').innerText = "#" + data.code;
-                document.getElementById('display-answers-title-code').innerText = data.code;
-                document.getElementById('print-qr-img').src = data.qr_url;
-                document.getElementById('quick-search-code').placeholder = "예: #" + data.code + " 또는 순번";
+                // 타이틀, 서브타이틀 및 일련번호 안전 갱신
+                const safeSetText = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerText = val;
+                };
+                safeSetText('top-badge-code', "#" + data.code);
+                safeSetText('display-worksheet-code-badge', "#" + data.code);
+                safeSetText('display-worksheet-code-text', "#" + data.code);
+                safeSetText('display-footer-code', "#" + data.code);
+                safeSetText('display-answers-footer-code', "#" + data.code);
+                safeSetText('display-answers-title-code', data.code);
+                
+                const qrImg = document.getElementById('print-qr-img');
+                if (qrImg) qrImg.src = data.qr_url;
 
-                document.getElementById('display-worksheet-title').innerText = data.title;
-                document.getElementById('display-worksheet-subtitle').innerText = data.subtitle;
-                document.getElementById('display-answers-title').innerHTML = `${data.title} - [ 정답지 #<span id="display-answers-title-code">${data.code}</span> ]`;
-                document.getElementById('display-seed-text-1').innerText = "Seed: " + data.seed;
+                const searchInput = document.getElementById('quick-search-code');
+                if (searchInput) searchInput.placeholder = "예: #" + data.code + " 또는 순번";
+
+                safeSetText('display-worksheet-title', data.title);
+                safeSetText('display-worksheet-subtitle', data.subtitle);
+
+                const ansTitleEl = document.getElementById('display-answers-title');
+                if (ansTitleEl) {
+                    ansTitleEl.innerHTML = `${data.title} - [ 정답지 #<span id="display-answers-title-code">${data.code}</span> ]`;
+                }
+
+                safeSetText('display-seed-text-1', "Seed: " + data.seed);
 
                 // 문제 리스트 (1페이지) DOM 갱신
                 const probContainer = document.getElementById('problems-grid-container');
-                probContainer.innerHTML = '';
-                data.problems.forEach((p, idx) => {
-                    const cleanQ = p.question.trim().replace(/\s*=\s*$/, '');
-                    const div = document.createElement('div');
-                    div.className = "print-problem-row flex items-baseline justify-between border-b border-slate-200 pb-2";
-                    div.innerHTML = `
-                        <div class="flex items-baseline gap-2 font-mono">
-                            <span class="prob-num font-bold text-slate-400 w-7 text-right text-sm">${idx + 1}.</span>
-                            <span class="prob-eq text-lg font-bold text-slate-900 tracking-tight">${cleanQ} <span class="font-normal text-slate-400">=</span></span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="inline-block w-24 border-b-2 border-slate-400"></span>
-                            <span class="text-[10px] text-slate-400 font-sans whitespace-nowrap">(___초)</span>
-                        </div>
-                    `;
-                    probContainer.appendChild(div);
-                });
+                if (probContainer && Array.isArray(data.problems)) {
+                    probContainer.innerHTML = '';
+                    data.problems.forEach((p, idx) => {
+                        const cleanQ = p.question.trim().replace(/\s*=\s*$/, '');
+                        const div = document.createElement('div');
+                        div.className = "print-problem-row flex items-baseline justify-between border-b border-slate-200 pb-2";
+                        div.innerHTML = `
+                            <div class="flex items-baseline gap-2 font-mono">
+                                <span class="prob-num font-bold text-slate-400 w-7 text-right text-sm">${idx + 1}.</span>
+                                <span class="prob-eq text-lg font-bold text-slate-900 tracking-tight">${cleanQ} <span class="font-normal text-slate-400">=</span></span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="inline-block w-24 border-b-2 border-slate-400"></span>
+                                <span class="text-[10px] text-slate-400 font-sans whitespace-nowrap">(___초)</span>
+                            </div>
+                        `;
+                        probContainer.appendChild(div);
+                    });
+                }
 
                 // 정답표 (2페이지) DOM 갱신
                 const ansContainer = document.getElementById('answers-grid-container');
-                ansContainer.innerHTML = '';
-                data.problems.forEach((p, idx) => {
-                    const div = document.createElement('div');
-                    div.className = "print-answer-item p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between";
-                    div.innerHTML = `
-                        <span class="font-bold text-slate-500 text-sm font-mono">${idx + 1}번</span>
-                        <span class="font-bold text-slate-900 text-lg font-mono">${p.answer}</span>
-                    `;
-                    ansContainer.appendChild(div);
-                });
+                if (ansContainer && Array.isArray(data.problems)) {
+                    ansContainer.innerHTML = '';
+                    data.problems.forEach((p, idx) => {
+                        const div = document.createElement('div');
+                        div.className = "print-answer-item p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between";
+                        div.innerHTML = `
+                            <span class="font-bold text-slate-500 text-sm font-mono">${idx + 1}번</span>
+                            <span class="font-bold text-slate-900 text-lg font-mono">${p.answer}</span>
+                        `;
+                        ansContainer.appendChild(div);
+                    });
+                }
 
                 // 보관된 문제집 선택 배너 숨김
-                document.getElementById('saved-worksheet-banner').classList.add('hidden');
+                const savedBanner = document.getElementById('saved-worksheet-banner');
+                if (savedBanner) savedBanner.classList.add('hidden');
             } else {
                 alert("문제 생성 실패: " + (data.error || '알 수 없는 오류'));
             }
         })
-        .catch(e => alert("문제 생성 중 통신 오류가 발생했습니다."))
+        .catch(e => {
+            console.error("문제 생성 통신/처리 오류:", e);
+            alert("문제 생성 중 오류가 발생했습니다: " + (e.message || "통신 오류"));
+        })
         .finally(() => {
             btn.innerText = "새 문제 세트 생성하기 (↺ 새로고침)";
             btn.disabled = false;

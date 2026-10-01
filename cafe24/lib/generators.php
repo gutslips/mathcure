@@ -19,13 +19,24 @@ class SeededRNG {
         $this->state = $h;
     }
 
+    private function imul($a, $b) {
+        $a = (int)$a & 0xffffffff;
+        $b = (int)$b & 0xffffffff;
+        $ah = ($a >> 16) & 0xffff;
+        $al = $a & 0xffff;
+        $bh = ($b >> 16) & 0xffff;
+        $bl = $b & 0xffff;
+        return ((($al * $bl) & 0xffffffff) + ((($ah * $bl + $al * $bh) << 16) & 0xffffffff)) & 0xffffffff;
+    }
+
     public function nextFloat() {
         $this->state = ($this->state + 0x6D2B79F5) & 0xffffffff;
-        $t = $this->state ^ ($this->state >> 15);
-        $t = ($t * (1 | $this->state)) & 0xffffffff;
-        $t = ($t + (($t ^ ($t >> 7)) * 61)) & 0xffffffff;
+        $t = ($this->state ^ ($this->state >> 15)) & 0xffffffff;
+        $t = $this->imul($t, 1 | $this->state);
+        $t2 = $this->imul(($t ^ ($t >> 7)) & 0xffffffff, 61);
+        $t = ($t + $t2) & 0xffffffff;
         $val = ($t ^ ($t >> 14)) & 0xffffffff;
-        return $val / 4294967296;
+        return abs($val) / 4294967296.0;
     }
 
     public function randInt($min, $max) {
@@ -80,9 +91,12 @@ function generate_basic($count, $difficulty = 2, $seed = null) {
         } elseif ($difficulty === 2) {
             $divisor = $rng->randInt(2, 9);
             $quotient = $rng->randInt(2, 9);
-        } else {
+        } elseif ($difficulty === 3) {
             $divisor = $rng->randInt(6, 9);
             $quotient = $rng->randInt(6, 9);
+        } else {
+            $divisor = $rng->randInt(6, 12);
+            $quotient = $rng->randInt(7, 15);
         }
 
         $dividend = $divisor * $quotient;
@@ -107,8 +121,10 @@ function generate_divide2($count, $difficulty = 2, $seed = null) {
             $quotient = $rng->randInt(11, 49);
         } elseif ($difficulty === 2) {
             $quotient = $rng->randInt(51, 99);
-        } else {
+        } elseif ($difficulty === 3) {
             $quotient = $rng->randInt(101, 499);
+        } else {
+            $quotient = $rng->randInt(501, 1999);
         }
 
         $dividend = 2 * $quotient;
@@ -133,8 +149,10 @@ function generate_divide4($count, $difficulty = 2, $seed = null) {
             $quotient = $rng->randInt(11, 30);
         } elseif ($difficulty === 2) {
             $quotient = $rng->randInt(31, 80);
-        } else {
+        } elseif ($difficulty === 3) {
             $quotient = $rng->randInt(81, 250);
+        } else {
+            $quotient = $rng->randInt(251, 800);
         }
 
         $dividend = 4 * $quotient;
@@ -159,8 +177,10 @@ function generate_divide5($count, $difficulty = 2, $seed = null) {
             $quotient = $rng->randInt(11, 50);
         } elseif ($difficulty === 2) {
             $quotient = $rng->randInt(51, 150);
-        } else {
+        } elseif ($difficulty === 3) {
             $quotient = $rng->randInt(151, 400);
+        } else {
+            $quotient = $rng->randInt(401, 1500);
         }
 
         $dividend = 5 * $quotient;
@@ -185,8 +205,10 @@ function generate_divide8($count, $difficulty = 2, $seed = null) {
             $quotient = $rng->randInt(11, 30);
         } elseif ($difficulty === 2) {
             $quotient = $rng->randInt(31, 70);
-        } else {
+        } elseif ($difficulty === 3) {
             $quotient = $rng->randInt(71, 150);
+        } else {
+            $quotient = $rng->randInt(151, 500);
         }
 
         $dividend = 8 * $quotient;
@@ -207,8 +229,16 @@ function generate_divide10($count, $difficulty = 2, $seed = null) {
 
     $limit = $count * 30;
     while (count($problems) < $count && $limit-- > 0) {
-        $divisor = $difficulty === 1 ? 10 : ($difficulty === 2 ? 100 : 1000);
-        $quotient = $rng->randInt(12, 99);
+        if ($difficulty === 1) {
+            $divisor = 10;
+        } elseif ($difficulty === 2) {
+            $divisor = 100;
+        } elseif ($difficulty === 3) {
+            $divisor = 1000;
+        } else {
+            $divisor = $rng->pickRandom([100, 1000, 10000]);
+        }
+        $quotient = $rng->randInt(12, 199);
         $dividend = $divisor * $quotient;
 
         $key = "{$dividend}_{$divisor}";
@@ -235,8 +265,10 @@ function generate_large_number($count, $difficulty = 2, $seed = null) {
             $quotient = $rng->randInt(100, 300);
         } elseif ($difficulty === 2) {
             $quotient = $rng->randInt(300, 800);
-        } else {
+        } elseif ($difficulty === 3) {
             $quotient = $rng->randInt(800, 2000);
+        } else {
+            $quotient = $rng->randInt(2000, 6000);
         }
 
         $dividend = $divisor * $quotient;
@@ -257,13 +289,18 @@ function generate_mixed($count, $difficulty = 2, $seed = null) {
 
     $limit = $count * 30;
     while (count($problems) < $count && $limit-- > 0) {
-        $divisor = $rng->randInt(11, 29);
         if ($difficulty === 1) {
+            $divisor = $rng->randInt(11, 20);
             $quotient = $rng->randInt(11, 20);
         } elseif ($difficulty === 2) {
+            $divisor = $rng->randInt(11, 29);
             $quotient = $rng->randInt(21, 50);
-        } else {
+        } elseif ($difficulty === 3) {
+            $divisor = $rng->randInt(15, 49);
             $quotient = $rng->randInt(51, 99);
+        } else {
+            $divisor = $rng->randInt(25, 99);
+            $quotient = $rng->randInt(60, 199);
         }
 
         $dividend = $divisor * $quotient;
