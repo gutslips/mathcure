@@ -375,28 +375,31 @@ try {
 
         <!-- 핵심 인쇄 & 액션 버튼군 -->
         <div class="flex flex-wrap items-center gap-2">
-            <!-- [1] 문제지만 1장 인쇄 (메인 다크 버튼) -->
-            <button type="button" onclick="printWorksheetOnly()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm active:scale-95">
-                <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-                📄 문제지만 인쇄 (A4 1장)
-            </button>
+            <!-- [A] 보관된 문제집 전용 인쇄 버튼군 (미보관 생성 상태에서는 숨김) -->
+            <div id="saved-print-actions" class="<?php echo $current_code ? 'flex' : 'hidden'; ?> items-center gap-2 flex-wrap">
+                <!-- [1] 문제지만 1장 인쇄 (메인 다크 버튼) -->
+                <button type="button" onclick="printWorksheetOnly()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm active:scale-95">
+                    <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+                    📄 문제지만 인쇄 (A4 1장)
+                </button>
 
-            <!-- [2] 정답지만 1장 인쇄 -->
-            <button type="button" onclick="printAnswersOnly()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs active:scale-95">
-                ✅ 정답지만 인쇄 (1장)
-            </button>
+                <!-- [2] 정답지만 1장 인쇄 -->
+                <button type="button" onclick="printAnswersOnly()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs active:scale-95">
+                    ✅ 정답지만 인쇄 (1장)
+                </button>
 
-            <!-- [3] 전체 2장 인쇄 -->
-            <button type="button" onclick="printFullWorksheet()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition active:scale-95">
-                🖨️ 전체 인쇄 (2장)
-            </button>
+                <!-- [3] 전체 2장 인쇄 -->
+                <button type="button" onclick="printFullWorksheet()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition active:scale-95">
+                    🖨️ 전체 인쇄 (2장)
+                </button>
+            </div>
 
-            <!-- [4] 이 문제집 보관하기 -->
+            <!-- [B] 이 문제집 보관하기 (미보관 시 초록색 강조, 보관 후 회색 뱃지) -->
             <button type="button" id="btn-save-action" onclick="saveCurrentWorksheet()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl <?php echo $current_code ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'; ?> text-xs font-bold transition active:scale-95">
                 <span id="btn-save-label"><?php echo $current_code ? ('✓ 보관됨 (#' . htmlspecialchars($current_code) . ')') : '★ 이 문제집 보관하기 (번호&QR발급)'; ?></span>
             </button>
 
-            <!-- [5] 온라인 시험 모달 -->
+            <!-- [C] 온라인 시험 모달 -->
             <button type="button" onclick="openExamModal()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm active:scale-95">
                 📱 온라인 시험 링크
             </button>
@@ -883,26 +886,12 @@ let currentWsId = <?php echo json_encode($current_ws_id); ?>;
 let currentQrUrl = <?php echo json_encode($qr_url); ?>;
 let createdExamData = null;
 
-// [1] 문제지만 1장 인쇄 (무조건 QR 부착 및 보관 후 인쇄 ➔ 보관함으로 이동)
+// [1] 문제지만 1장 인쇄 (보관된 문제지에서 호출)
 function printWorksheetOnly() {
-    if (!currentCode) {
-        autoSaveAndPrint(() => {
-            doPrintWorksheetOnly(() => {
-                if (currentWsId) {
-                    location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
-                }
-            });
-        });
-        return;
-    }
-    doPrintWorksheetOnly(() => {
-        if (currentWsId) {
-            location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
-        }
-    });
+    doPrintWorksheetOnly();
 }
 
-function doPrintWorksheetOnly(afterPrintCallback) {
+function doPrintWorksheetOnly() {
     document.getElementById('display-page-num-1').innerText = "Page 1 / 1";
     document.body.classList.remove('print-only-answers');
     document.body.classList.add('print-only-problems');
@@ -914,28 +903,15 @@ function doPrintWorksheetOnly(afterPrintCallback) {
 
     setTimeout(() => {
         document.body.classList.remove('print-only-problems', 'hide-print-qr');
-        if (typeof afterPrintCallback === 'function') {
-            afterPrintCallback();
-        }
     }, 1000);
 }
 
-// [2] 정답지만 1장 인쇄
+// [2] 정답지만 1장 인쇄 (보관된 문제지에서 호출)
 function printAnswersOnly() {
-    if (!currentCode) {
-        autoSaveAndPrint(() => {
-            doPrintAnswersOnly(() => {
-                if (currentWsId) {
-                    location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
-                }
-            });
-        });
-        return;
-    }
     doPrintAnswersOnly();
 }
 
-function doPrintAnswersOnly(afterPrintCallback) {
+function doPrintAnswersOnly() {
     document.body.classList.remove('print-only-problems', 'hide-print-qr');
     document.body.classList.add('print-only-answers');
 
@@ -943,32 +919,15 @@ function doPrintAnswersOnly(afterPrintCallback) {
 
     setTimeout(() => {
         document.body.classList.remove('print-only-answers');
-        if (typeof afterPrintCallback === 'function') {
-            afterPrintCallback();
-        }
     }, 1000);
 }
 
-// [3] 전체 2장 인쇄 (무조건 QR 부착 및 보관 후 인쇄 ➔ 보관함으로 이동)
+// [3] 전체 2장 인쇄 (보관된 문제지에서 호출)
 function printFullWorksheet() {
-    if (!currentCode) {
-        autoSaveAndPrint(() => {
-            doPrintFullWorksheet(() => {
-                if (currentWsId) {
-                    location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
-                }
-            });
-        });
-        return;
-    }
-    doPrintFullWorksheet(() => {
-        if (currentWsId) {
-            location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
-        }
-    });
+    doPrintFullWorksheet();
 }
 
-function doPrintFullWorksheet(afterPrintCallback) {
+function doPrintFullWorksheet() {
     document.getElementById('display-page-num-1').innerText = "Page 1 / 2";
     document.body.classList.remove('print-only-problems', 'print-only-answers');
     const qrChecked = document.getElementById('toggle-print-qr')?.checked ?? true;
@@ -979,65 +938,7 @@ function doPrintFullWorksheet(afterPrintCallback) {
 
     setTimeout(() => {
         document.body.classList.remove('hide-print-qr');
-        if (typeof afterPrintCallback === 'function') {
-            afterPrintCallback();
-        }
     }, 1000);
-}
-
-function autoSaveAndPrint(callback) {
-    const defaultTitle = "<?php echo htmlspecialchars($active_student['name'] ?? '학생'); ?>의 " + (document.getElementById('gen-opt-type').selectedOptions[0]?.text || '맞춤 훈련지') + " " + currentCount + "제";
-    const formData = new FormData();
-    formData.append('action', 'save_worksheet');
-    formData.append('title', defaultTitle);
-    formData.append('problem_type', currentType);
-    formData.append('difficulty', currentDifficulty);
-    formData.append('count', currentCount);
-    formData.append('seed', currentSeed);
-    formData.append('problems', JSON.stringify(currentProblems));
-
-    fetch('worksheet.php', { method: 'POST', body: formData })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                currentCode = data.code;
-                currentWsId = data.id;
-
-                const safeSetText = (id, val) => {
-                    const el = document.getElementById(id);
-                    if (el) el.innerText = val;
-                };
-                safeSetText('top-badge-code', "#" + data.code);
-                document.getElementById('top-badge-code').className = "px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-mono font-bold rounded-lg";
-                safeSetText('display-worksheet-code-badge', "#" + data.code);
-                document.getElementById('display-worksheet-code-badge').className = "px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-[11px] font-bold tracking-wider";
-                safeSetText('display-worksheet-code-text', "#" + data.code);
-                safeSetText('display-footer-code', "#" + data.code);
-                safeSetText('display-answers-footer-code', "#" + data.code);
-                safeSetText('display-answers-title-code', data.code);
-
-                const ansCodeWrap = document.getElementById('display-answers-title-code-wrap');
-                if (ansCodeWrap) ansCodeWrap.classList.remove('hidden');
-
-                const qrContainer = document.getElementById('print-qr-container');
-                if (qrContainer) {
-                    qrContainer.classList.remove('hidden');
-                    qrContainer.classList.add('flex');
-                }
-                const qrImg = document.getElementById('print-qr-img');
-                if (qrImg) qrImg.src = data.qr_url;
-
-                const saveBtn = document.getElementById('btn-save-action');
-                if (saveBtn) saveBtn.className = "inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold transition active:scale-95";
-                const saveLabel = document.getElementById('btn-save-label');
-                if (saveLabel) saveLabel.innerText = "✓ 보관됨 (#" + data.code + ")";
-
-                setTimeout(callback, 300);
-            } else {
-                callback();
-            }
-        })
-        .catch(() => callback());
 }
 
 // QR코드 인쇄 포함 토글
@@ -1174,7 +1075,13 @@ function generateNewProblemsAsync() {
                 const ansCodeWrap = document.getElementById('display-answers-title-code-wrap');
                 if (ansCodeWrap) ansCodeWrap.classList.add('hidden');
 
-                // 보관하기 버튼 활성화 모드로 변경
+                // 보관하기 버튼 활성화 모드로 변경 및 인쇄 버튼군 숨김
+                const printActions = document.getElementById('saved-print-actions');
+                if (printActions) {
+                    printActions.classList.add('hidden');
+                    printActions.classList.remove('flex');
+                }
+
                 const saveBtn = document.getElementById('btn-save-action');
                 if (saveBtn) saveBtn.className = "inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm active:scale-95";
                 const saveLabel = document.getElementById('btn-save-label');
@@ -1352,8 +1259,8 @@ function saveCurrentWorksheet() {
                     arcBtn.innerHTML = `📁 보관함 목록 (${newCount})`;
                 }
 
-                alert(`'${data.title}' 문제집이 보관되었습니다!\n\n공식 훈련번호 #${data.code} 와 스마트폰 빠른 채점 QR코드가 발급되었습니다.`);
-                location.href = `worksheet.php?id=${encodeURIComponent(data.id)}&archive=1`;
+                alert(`'${data.title}' 문제집이 보관되었습니다!\n\n공식 훈련번호 #${data.code} 와 빠른 채점 QR코드가 발급되었습니다.\n인쇄 버튼이 활성화된 화면으로 이동합니다.`);
+                location.href = `worksheet.php?id=${encodeURIComponent(data.id)}`;
             } else {
                 alert("저장 실패: " + (data.error || '알 수 없는 오류'));
             }
