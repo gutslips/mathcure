@@ -5,11 +5,46 @@ require_once __DIR__ . '/lib/generators.php';
 $type = $_GET['type'] ?? 'divide5';
 $difficulty = (int)($_GET['difficulty'] ?? 2);
 $count = (int)($_GET['count'] ?? 10);
+$worksheet_id = $_GET['worksheet_id'] ?? null;
+$worksheet_title = null;
 
-$problems = generate_problems_by_type($type, $count, $difficulty);
+$problems = [];
+if ($worksheet_id) {
+    try {
+        $t_ws = table('worksheets');
+        $stmt = $pdo->prepare("SELECT * FROM `{$t_ws}` WHERE `id` = ?");
+        $stmt->execute([$worksheet_id]);
+        $ws_data = $stmt->fetch();
+        if ($ws_data && !empty($ws_data['problems'])) {
+            $decoded = json_decode($ws_data['problems'], true);
+            if (is_array($decoded) && count($decoded) > 0) {
+                $problems = $decoded;
+                $worksheet_title = $ws_data['title'];
+                $type = $ws_data['problem_type'] ?? $type;
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+if (empty($problems)) {
+    $problems = generate_problems_by_type($type, $count, $difficulty);
+}
 ?>
 
 <div class="max-w-2xl mx-auto space-y-6">
+    <?php if ($worksheet_title): ?>
+        <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-xs text-emerald-950 shadow-xs">
+            <div class="flex items-center gap-2.5">
+                <span class="font-bold px-2.5 py-1 bg-emerald-600 text-white rounded-lg">보관된 문제집 풀이 중</span>
+                <span class="font-bold text-sm"><?php echo htmlspecialchars($worksheet_title); ?></span>
+                <span class="text-emerald-700">(<?php echo count($problems); ?>문제 그대로 풀이)</span>
+            </div>
+            <a href="worksheet.php" class="text-xs text-emerald-800 hover:text-emerald-950 font-semibold underline underline-offset-2">
+                보관함 목록 ➔
+            </a>
+        </div>
+    <?php endif; ?>
+
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-xl font-bold text-slate-900">

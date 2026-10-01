@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Problem, ProblemType, PROBLEM_TYPE_LABELS } from "@/types/problem";
 import { generateProblemsByType } from "@/lib/generators";
 import { 
@@ -15,9 +16,11 @@ import {
 function PracticeContent() {
   const searchParams = useSearchParams();
   const initialType = (searchParams.get("type") as ProblemType) || "divide5";
+  const worksheetId = searchParams.get("worksheetId");
 
   const [type, setType] = useState<ProblemType>(initialType);
   const [difficulty, setDifficulty] = useState(2);
+  const [worksheetTitle, setWorksheetTitle] = useState<string | null>(null);
   const [problems, setProblems] = useState<Problem[]>(() =>
     generateProblemsByType(initialType, 10, 2)
   );
@@ -31,6 +34,29 @@ function PracticeContent() {
   const inputRef = useRef<HTMLInputElement>(null);
   const nextBtnRef = useRef<HTMLButtonElement>(null);
   const isTransitioningRef = useRef<boolean>(false);
+
+  // 보관된 문제집 로드 (선택된 문제집 그대로 온라인 풀기)
+  useEffect(() => {
+    if (worksheetId) {
+      fetch(`/api/worksheet?id=${worksheetId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.worksheet && data.worksheet.problems?.length > 0) {
+            setProblems(data.worksheet.problems);
+            setWorksheetTitle(data.worksheet.title);
+            setType(data.worksheet.problemType as ProblemType);
+            setDifficulty(data.worksheet.difficulty);
+            setCurrentIndex(0);
+            setInputValue("");
+            setFeedback(null);
+            setResults([]);
+            setShowHint(false);
+            problemStartTime.current = Date.now();
+          }
+        })
+        .catch((err) => console.error("Failed to load saved worksheet problems:", err));
+    }
+  }, [worksheetId]);
 
   // 마운트 시 문제 풀이 시작 시점 기록
   useEffect(() => {
@@ -145,6 +171,19 @@ function PracticeContent() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {worksheetTitle && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-xs text-emerald-950 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="font-bold px-2.5 py-1 bg-emerald-600 text-white rounded-lg">보관된 문제집 풀이 중</span>
+            <span className="font-bold text-sm">{worksheetTitle}</span>
+            <span className="text-emerald-700">({problems.length}문제)</span>
+          </div>
+          <Link href="/worksheet" className="text-xs text-emerald-800 hover:text-emerald-950 font-semibold underline underline-offset-2">
+            보관함 목록 ➔
+          </Link>
+        </div>
+      )}
+
       {/* 훈련 설정 바 */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">

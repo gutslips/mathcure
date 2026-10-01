@@ -119,6 +119,11 @@ export function Navbar() {
     { href: "/settings", label: "설정", icon: SettingsIcon },
   ];
 
+  // 학생 전용 시험 화면(/exam/...)에서는 상단/하단 네비게이션을 완전히 숨김
+  if (pathname.startsWith("/exam")) {
+    return null;
+  }
+
   return (
     <header className="no-print bg-white border-b border-slate-200 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

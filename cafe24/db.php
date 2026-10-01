@@ -126,19 +126,43 @@ function auto_install_tables(PDO $pdo, $prefix = 'mc_', $admin_data = null) {
         `problem_type` VARCHAR(50) NOT NULL,
         `count` INT NOT NULL,
         `seed` VARCHAR(100) NOT NULL,
+        `problems` LONGTEXT NULL,
         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX (`student_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS `{$prefix}exams` (
+        `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+        `code` VARCHAR(10) NOT NULL UNIQUE,
+        `title` VARCHAR(100) NOT NULL,
+        `worksheet_id` VARCHAR(36) NULL,
+        `student_name` VARCHAR(50) NULL,
+        `time_limit_sec` INT NOT NULL DEFAULT 600,
+        `status` ENUM('active', 'completed', 'expired') NOT NULL DEFAULT 'active',
+        `problems` LONGTEXT NOT NULL,
+        `show_result` TINYINT(1) NOT NULL DEFAULT 1,
+        `score` INT NULL,
+        `total_count` INT NULL,
+        `results` LONGTEXT NULL,
+        `started_at` DATETIME NULL,
+        `submitted_at` DATETIME NULL,
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX (`code`),
+        INDEX (`status`),
+        INDEX (`worksheet_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ";
 
     $pdo->exec($sql);
 
-    // 기존 students 테이블에 user_id 컬럼이 없을 경우 대비 마이그레이션
+    // 기존 테이블 마이그레이션 (컬럼 추가 대비)
     try {
         $pdo->exec("ALTER TABLE `{$prefix}students` ADD COLUMN `user_id` VARCHAR(36) NULL AFTER `id`, ADD INDEX (`user_id`)");
-    } catch (Exception $e) {
-        // 이미 존재하면 무시
-    }
+    } catch (Exception $e) {}
+
+    try {
+        $pdo->exec("ALTER TABLE `{$prefix}worksheets` ADD COLUMN `problems` LONGTEXT NULL AFTER `seed`");
+    } catch (Exception $e) {}
 
     // 관리자 계정 생성 또는 비밀번호 업데이트
     $admin_user = !empty($admin_data['username']) ? trim($admin_data['username']) : 'admin';

@@ -73,11 +73,34 @@ model Worksheet {
   id          String   @id @default(cuid())
   studentId   String?
   title       String
-  subject     String
-  grade       Int
+  subject     String   @default("나눗셈")
+  grade       Int      @default(5)
   difficulty  Int
   problemType String
   count       Int
   seed        String
+  problems    String?  // JSON array of Problem objects
   createdAt   DateTime @default(now())
+
+  exams       Exam[]
+}
+
+model Exam {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  title        String
+  worksheetId  String?
+  studentName  String?
+  timeLimitSec Int       @default(600)
+  status       String    @default("active")
+  problems     String
+  showResult   Boolean   @default(true)
+  score        Int?
+  totalCount   Int?
+  results      String?
+  startedAt    DateTime?
+  submittedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  worksheet    Worksheet? @relation(fields: [worksheetId], references: [id], onDelete: SetNull)
 }
