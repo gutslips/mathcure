@@ -194,6 +194,25 @@ function auto_install_tables(PDO $pdo, $prefix = 'mc_', $admin_data = null) {
         INDEX (`status`),
         INDEX (`worksheet_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS `{$prefix}worksheet_grades` (
+        `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+        `worksheet_id` VARCHAR(36) NULL,
+        `worksheet_code` VARCHAR(30) NOT NULL,
+        `student_id` VARCHAR(36) NOT NULL,
+        `title` VARCHAR(100) NOT NULL,
+        `problem_type` VARCHAR(50) NOT NULL,
+        `difficulty` INT NOT NULL DEFAULT 2,
+        `total_count` INT NOT NULL,
+        `correct_count` INT NOT NULL,
+        `score` INT NOT NULL,
+        `graded_by` VARCHAR(36) NULL,
+        `graded_items` LONGTEXT NULL,
+        `graded_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX (`student_id`),
+        INDEX (`worksheet_code`),
+        INDEX (`graded_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ";
 
     $pdo->exec($sql);
