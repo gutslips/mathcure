@@ -75,7 +75,6 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
   const [showKeypad, setShowKeypad] = useState(true);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // 시험 정보 로드
   useEffect(() => {
@@ -221,9 +220,9 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
         return;
       }
 
-      // 다른 input/textarea에 포커스된 경우 무시
+      // 다른 input/textarea에 포커스된 경우(예: 학생 이름 입력창 등) 무시
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        if (e.target !== inputRef.current) return;
+        return;
       }
 
       if (e.key >= "0" && e.key <= "9") {
@@ -442,10 +441,7 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
 
               {/* 답안 입력 표시창 */}
               <div className="max-w-xs mx-auto">
-                <div
-                  className="w-full h-16 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 shadow-inner flex items-center justify-center text-3xl sm:text-4xl font-mono font-black text-emerald-400 tracking-wider cursor-pointer"
-                  onClick={() => inputRef.current?.focus()}
-                >
+                <div className="w-full h-16 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 shadow-inner flex items-center justify-center text-3xl sm:text-4xl font-mono font-black text-emerald-400 tracking-wider">
                   {answers[currentIndex] ? (
                     <span className="flex items-center">
                       {answers[currentIndex]}
@@ -458,18 +454,6 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
                     </span>
                   )}
                 </div>
-                {/* 물리 키보드 대응용 hidden input */}
-                <input
-                  ref={inputRef}
-                  type="text"
-                  inputMode="numeric"
-                  value={answers[currentIndex] || ""}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9]/g, "");
-                    setAnswers((prev) => ({ ...prev, [currentIndex]: val }));
-                  }}
-                  className="sr-only"
-                />
               </div>
 
               {/* PC 키보드 & 터치 입력 안내 */}

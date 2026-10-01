@@ -473,6 +473,9 @@ document.addEventListener('keydown', function(e) {
     const testStep = document.getElementById('step-testing');
     if (!testStep || testStep.classList.contains('hidden')) return;
 
+    // 다른 input/textarea에 포커스된 경우 무시
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+
     // 제출 확인 모달이 열려있는 경우
     const modal = document.getElementById('confirm-modal');
     if (modal && !modal.classList.contains('hidden')) {
