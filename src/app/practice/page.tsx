@@ -85,14 +85,15 @@ function PracticeContent() {
     loadSet(type, newDiff);
   };
 
-  // 피드백 여부에 따라 적절한 요소에 포커스
+  // 피드백 여부에 따라 적절한 요소에 포커스 (터치 기기는 OS 가상 키보드 팝업 방지를 위해 자동 포커스 제외)
   useEffect(() => {
+    const isTouch = typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
     if (feedback) {
-      if (nextBtnRef.current) {
+      if (nextBtnRef.current && !isTouch) {
         nextBtnRef.current.focus();
       }
     } else {
-      if (inputRef.current) {
+      if (inputRef.current && !isTouch) {
         inputRef.current.focus();
       }
     }
@@ -144,7 +145,8 @@ function PracticeContent() {
     // 다음 문제로 넘어간 직후 200ms 동안은 엔터키 연타로 인한 즉시 제출 방지
     setTimeout(() => {
       isTransitioningRef.current = false;
-      if (inputRef.current) {
+      const isTouch = typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+      if (inputRef.current && !isTouch) {
         inputRef.current.focus();
       }
     }, 200);

@@ -78,21 +78,30 @@ if (empty($problems)) {
     </div>
 
     <!-- 연습 문제 카드 -->
-    <div id="practice-card" class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-10 text-center space-y-6 shadow-sm">
+    <div id="practice-card" class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-10 text-center space-y-5 shadow-sm">
         <div id="p-question" class="text-3xl sm:text-5xl font-mono font-bold text-slate-900 tracking-tight py-2 sm:py-4">
             -- ÷ -- =
         </div>
 
-        <div class="max-w-xs mx-auto">
-            <input type="text" inputmode="numeric" id="practice-input" placeholder="답 입력 후 확인" autocomplete="off"
-                class="w-full text-center text-2xl sm:text-3xl font-mono font-bold py-3 px-4 rounded-xl border-2 border-slate-300 focus:border-slate-900 focus:outline-none transition">
+        <div class="max-w-xs mx-auto space-y-3">
+            <div id="p-answer-display" class="w-full h-16 rounded-2xl bg-slate-50 border-2 border-slate-300 flex items-center justify-center text-3xl font-mono font-black text-slate-900 tracking-wider">
+                <span class="text-slate-400 text-lg font-normal">답 입력</span>
+                <span class="inline-block w-0.5 h-6 bg-slate-400 ml-1 animate-pulse"></span>
+            </div>
 
-            <div class="mt-4 flex gap-2">
+            <!-- PC 키보드 & 터치 입력 안내 -->
+            <div class="flex items-center justify-center">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200 text-[11px] text-slate-600">
+                    ⌨️ <strong class="text-slate-900 font-semibold">PC 키보드:</strong> 숫자(0~9) · Enter(확인/다음) · Backspace(지우기)
+                </span>
+            </div>
+
+            <div class="pt-1 flex gap-2">
                 <button id="submit-btn" onclick="checkPracticeAnswer()" class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition active:scale-98">
                     정답 확인 (Enter)
                 </button>
-                <button id="next-btn" onclick="nextPracticeProblem()" class="hidden flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition active:scale-98 shadow-sm">
-                    다음 문제 ➔
+                <button id="next-btn" onclick="nextPracticeProblem()" class="hidden flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition active:scale-98 shadow-sm">
+                    다음 문제 ➔ (Enter)
                 </button>
             </div>
         </div>
@@ -100,20 +109,28 @@ if (empty($problems)) {
         <!-- 피드백 메시지 박스 -->
         <div id="feedback-box" class="hidden p-4 rounded-xl text-sm font-semibold"></div>
 
+        <!-- 가상 키패드 토글 바 -->
+        <div class="flex items-center justify-between max-w-xs mx-auto text-xs px-1 pt-1">
+            <span class="text-slate-500 font-medium">화면 터치 키패드</span>
+            <button type="button" onclick="togglePracticeKeypad()" id="btn-toggle-keypad" class="text-slate-700 hover:text-slate-900 font-semibold flex items-center gap-1 transition">
+                키패드 접기 ▲
+            </button>
+        </div>
+
         <!-- 모바일 가상 키패드 -->
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-w-xs mx-auto grid grid-cols-3 gap-2 select-none" style="touch-action: manipulation;">
+        <div id="practice-keypad" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-w-xs mx-auto grid grid-cols-3 gap-2 select-none transition-all duration-200" style="touch-action: manipulation;">
             <?php for ($i = 1; $i <= 9; $i++): ?>
                 <button type="button" onclick="appendPracticeDigit('<?php echo $i; ?>')" class="py-3 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-900 font-bold rounded-xl text-lg transition active:scale-95 shadow-2xs">
                     <?php echo $i; ?>
                 </button>
             <?php endfor; ?>
-            <button type="button" onclick="clearPracticeInput()" class="py-3 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-500 font-semibold rounded-xl text-xs transition active:scale-95 shadow-2xs">
-                지우기
+            <button type="button" onclick="backspacePracticeDigit()" class="py-3 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-500 font-semibold rounded-xl text-xs transition active:scale-95 shadow-2xs">
+                ⌫ 지우기
             </button>
             <button type="button" onclick="appendPracticeDigit('0')" class="py-3 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-900 font-bold rounded-xl text-lg transition active:scale-95 shadow-2xs">
                 0
             </button>
-            <button type="button" onclick="onKeypadAction()" class="py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition active:scale-95 shadow-xs">
+            <button type="button" onclick="onKeypadAction()" id="btn-keypad-action" class="py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition active:scale-95 shadow-xs">
                 확인 ↵
             </button>
         </div>
@@ -163,22 +180,50 @@ let totalElapsedMs = 0;
 let problemStartTime = Date.now();
 let isAnswerChecked = false;
 let sessionStartTime = new Date();
+let currentAnswerVal = "";
+let keypadVisible = true;
+
+function togglePracticeKeypad() {
+    keypadVisible = !keypadVisible;
+    const kp = document.getElementById('practice-keypad');
+    const btn = document.getElementById('btn-toggle-keypad');
+    if (keypadVisible) {
+        kp.classList.remove('hidden');
+        btn.innerText = "키패드 접기 ▲";
+    } else {
+        kp.classList.add('hidden');
+        btn.innerText = "키패드 펼치기 ▼";
+    }
+}
+
+function updateAnswerDisplay() {
+    const disp = document.getElementById('p-answer-display');
+    if (!disp) return;
+    if (currentAnswerVal.length > 0) {
+        disp.innerHTML = `<span class="font-mono">${currentAnswerVal}</span><span class="inline-block w-0.5 h-6 bg-slate-900 ml-1 animate-pulse"></span>`;
+    } else {
+        disp.innerHTML = `<span class="text-slate-400 text-lg font-normal">답 입력</span><span class="inline-block w-0.5 h-6 bg-slate-400 ml-1 animate-pulse"></span>`;
+    }
+}
 
 function loadPractice(index) {
     currentIndex = index;
     isAnswerChecked = false;
+    currentAnswerVal = "";
     const p = problems[index];
 
     document.getElementById('p-counter').innerText = `${index + 1} / ${problems.length}`;
     document.getElementById('p-question').innerText = p.question;
 
-    const input = document.getElementById('practice-input');
-    input.value = '';
-    input.disabled = false;
-    input.focus();
+    updateAnswerDisplay();
 
     document.getElementById('submit-btn').classList.remove('hidden');
     document.getElementById('next-btn').classList.add('hidden');
+    const kpAction = document.getElementById('btn-keypad-action');
+    if (kpAction) {
+        kpAction.innerText = "확인 ↵";
+        kpAction.className = "py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition active:scale-95 shadow-xs";
+    }
 
     const feedback = document.getElementById('feedback-box');
     feedback.className = 'hidden p-4 rounded-xl text-sm font-semibold';
@@ -189,14 +234,23 @@ function loadPractice(index) {
 
 function appendPracticeDigit(digit) {
     if (isAnswerChecked) return;
-    const input = document.getElementById('practice-input');
-    input.value += digit;
+    if (currentAnswerVal.length >= 6) return;
+    currentAnswerVal += digit;
+    updateAnswerDisplay();
+}
+
+function backspacePracticeDigit() {
+    if (isAnswerChecked) return;
+    if (currentAnswerVal.length > 0) {
+        currentAnswerVal = currentAnswerVal.slice(0, -1);
+        updateAnswerDisplay();
+    }
 }
 
 function clearPracticeInput() {
     if (isAnswerChecked) return;
-    const input = document.getElementById('practice-input');
-    input.value = '';
+    currentAnswerVal = "";
+    updateAnswerDisplay();
 }
 
 function onKeypadAction() {
@@ -209,8 +263,7 @@ function onKeypadAction() {
 
 function checkPracticeAnswer() {
     if (isAnswerChecked) return;
-    const input = document.getElementById('practice-input');
-    const userVal = input.value.trim();
+    const userVal = currentAnswerVal.trim();
     if (userVal === '') return;
 
     isAnswerChecked = true;
@@ -221,9 +274,13 @@ function checkPracticeAnswer() {
     const userNum = parseInt(userVal, 10);
     const isCorrect = userNum === p.answer;
 
-    input.disabled = true;
     document.getElementById('submit-btn').classList.add('hidden');
     document.getElementById('next-btn').classList.remove('hidden');
+    const kpAction = document.getElementById('btn-keypad-action');
+    if (kpAction) {
+        kpAction.innerText = "다음 ➔";
+        kpAction.className = "py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition active:scale-95 shadow-xs";
+    }
 
     const feedback = document.getElementById('feedback-box');
     feedback.classList.remove('hidden');
@@ -236,8 +293,6 @@ function checkPracticeAnswer() {
         feedback.className = 'p-4 rounded-xl text-sm font-semibold bg-rose-50 text-rose-800 border border-rose-200';
         feedback.innerHTML = `❌ 아쉬워요! 정답은 <strong>${p.answer}</strong> 입니다.<br><small class="text-rose-600 font-normal mt-1 block">${p.strategyTip || ''}</small>`;
     }
-
-    document.getElementById('next-btn').focus();
 }
 
 function nextPracticeProblem() {
@@ -248,14 +303,23 @@ function nextPracticeProblem() {
     }
 }
 
-document.getElementById('practice-input').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
+// PC 물리 키보드 완벽 연동
+document.addEventListener('keydown', function(e) {
+    if (!document.getElementById('result-card').classList.contains('hidden')) return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+
+    if (e.key >= '0' && e.key <= '9') {
         e.preventDefault();
-        if (!isAnswerChecked) {
-            checkPracticeAnswer();
-        } else {
-            nextPracticeProblem();
-        }
+        appendPracticeDigit(e.key);
+    } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        backspacePracticeDigit();
+    } else if (e.key === 'Delete') {
+        e.preventDefault();
+        clearPracticeInput();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onKeypadAction();
     }
 });
 

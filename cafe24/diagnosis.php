@@ -160,20 +160,20 @@ function loadProblem(index) {
 
     const input = document.getElementById('answer-input');
     input.value = '';
-    input.focus();
+    if (!('ontouchstart' in window)) {
+        input.focus();
+    }
     currentProblemStartTime = Date.now();
 }
 
 function appendDigit(digit) {
     const input = document.getElementById('answer-input');
     input.value += digit;
-    input.focus();
 }
 
 function clearInput() {
     const input = document.getElementById('answer-input');
     input.value = '';
-    input.focus();
 }
 
 function submitAnswer() {
@@ -204,8 +204,27 @@ function submitAnswer() {
     }
 }
 
-document.getElementById('answer-input').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
+document.addEventListener('keydown', function(e) {
+    if (document.getElementById('test-screen').classList.contains('hidden')) return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitAnswer();
+        }
+        return;
+    }
+
+    if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        appendDigit(e.key);
+    } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        const input = document.getElementById('answer-input');
+        input.value = input.value.slice(0, -1);
+    } else if (e.key === 'Delete') {
+        e.preventDefault();
+        clearInput();
+    } else if (e.key === 'Enter') {
         e.preventDefault();
         submitAnswer();
     }
