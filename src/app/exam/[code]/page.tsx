@@ -12,7 +12,10 @@ import {
   ArrowRight,
   Send,
   HelpCircle,
-  ShieldAlert
+  ShieldAlert,
+  Keyboard,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 
 interface ExamProblem {
@@ -69,6 +72,7 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmittedResult | null>(null);
   const [confirmSubmitModal, setConfirmSubmitModal] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(true);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -136,6 +140,14 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
     });
   };
 
+  const handleBackspace = () => {
+    setAnswers((prev) => {
+      const current = prev[currentIndex] || "";
+      if (!current) return prev;
+      return { ...prev, [currentIndex]: current.slice(0, -1) };
+    });
+  };
+
   const handleClear = () => {
     setAnswers((prev) => ({ ...prev, [currentIndex]: "" }));
   };
@@ -191,6 +203,57 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
       setSubmitting(false);
     }
   };
+
+  // PC 물리 키보드 완벽 연동
+  useEffect(() => {
+    if (stage !== "testing") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 제출 확인 모달이 열려있는 경우
+      if (confirmSubmitModal) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setConfirmSubmitModal(false);
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          handleFinalSubmit();
+        }
+        return;
+      }
+
+      // 다른 input/textarea에 포커스된 경우 무시
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        if (e.target !== inputRef.current) return;
+      }
+
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault();
+        handleDigit(e.key);
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        handleBackspace();
+      } else if (e.key === "Delete") {
+        e.preventDefault();
+        handleClear();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (exam && currentIndex < exam.problems.length - 1) {
+          handleNext();
+        } else {
+          setConfirmSubmitModal(true);
+        }
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handlePrev();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        handleNext();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [stage, confirmSubmitModal, currentIndex, exam]);
 
   // 남은 시간 포맷팅 (MM:SS)
   const formatTime = (seconds: number) => {
@@ -371,7 +434,7 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
             </div>
 
             {/* 문제 카드 */}
-            <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 shadow-xl text-center space-y-6">
+            <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 shadow-xl text-center space-y-5">
               <div className="text-3xl sm:text-5xl font-mono font-black text-white tracking-tight">
                 {currentProb.question.replace(/\s*=\s*$/, "")}{" "}
                 <span className="text-slate-500 font-light">=</span>
@@ -380,11 +443,19 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
               {/* 답안 입력 표시창 */}
               <div className="max-w-xs mx-auto">
                 <div
-                  className="w-full h-16 rounded-2xl bg-slate-950 border-2 border-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-mono font-black text-emerald-400 tracking-wider shadow-inner"
+                  className="w-full h-16 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 shadow-inner flex items-center justify-center text-3xl sm:text-4xl font-mono font-black text-emerald-400 tracking-wider cursor-pointer"
                   onClick={() => inputRef.current?.focus()}
                 >
-                  {answers[currentIndex] || (
-                    <span className="text-slate-600 text-xl font-normal">답 입력</span>
+                  {answers[currentIndex] ? (
+                    <span className="flex items-center">
+                      {answers[currentIndex]}
+                      <span className="inline-block w-0.5 h-7 bg-emerald-400 ml-1 animate-pulse" />
+                    </span>
+                  ) : (
+                    <span className="flex items-center text-slate-600 text-xl font-normal">
+                      답 입력
+                      <span className="inline-block w-0.5 h-6 bg-slate-600 ml-1 animate-pulse" />
+                    </span>
                   )}
                 </div>
                 {/* 물리 키보드 대응용 hidden input */}
@@ -397,57 +468,81 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
                     const val = e.target.value.replace(/[^0-9]/g, "");
                     setAnswers((prev) => ({ ...prev, [currentIndex]: val }));
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      if (!isLastProblem) handleNext();
-                      else setConfirmSubmitModal(true);
-                    }
-                  }}
                   className="sr-only"
                 />
               </div>
+
+              {/* PC 키보드 & 터치 입력 안내 */}
+              <div className="flex items-center justify-center">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 rounded-full border border-slate-700/80 text-[11px] text-slate-300">
+                  <Keyboard className="w-3.5 h-3.5 text-emerald-400" />
+                  <strong className="text-emerald-400 font-semibold">PC 키보드 지원:</strong> 숫자(0~9) · Enter(다음) · Backspace(지우기)
+                </span>
+              </div>
+            </div>
+
+            {/* 가상 키패드 토글 바 (PC / 태블릿 환경 배려) */}
+            <div className="flex items-center justify-between max-w-xs mx-auto text-xs px-1">
+              <span className="text-slate-400 font-medium">화면 터치 키패드</span>
+              <button
+                type="button"
+                onClick={() => setShowKeypad(!showKeypad)}
+                className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 transition"
+              >
+                {showKeypad ? (
+                  <>
+                    키패드 접기 <ChevronUp className="w-3.5 h-3.5" />
+                  </>
+                ) : (
+                  <>
+                    키패드 펼치기 <ChevronDown className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
             </div>
 
             {/* 터치 전용 가상 키패드 */}
-            <div
-              className="bg-slate-900/80 border border-slate-800 rounded-3xl p-3 max-w-xs mx-auto grid grid-cols-3 gap-2"
-              style={{ touchAction: "manipulation" }}
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+            {showKeypad && (
+              <div
+                className="bg-slate-900/80 border border-slate-800 rounded-3xl p-3 max-w-xs mx-auto grid grid-cols-3 gap-2 transition-all duration-200"
+                style={{ touchAction: "manipulation" }}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handleDigit(String(num))}
+                    className="py-3.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-mono font-bold text-xl rounded-2xl transition active:scale-95 shadow-sm"
+                  >
+                    {num}
+                  </button>
+                ))}
                 <button
-                  key={num}
                   type="button"
-                  onClick={() => handleDigit(String(num))}
+                  onClick={handleBackspace}
+                  className="py-3.5 bg-slate-800/60 hover:bg-slate-800 active:bg-slate-700 text-slate-400 font-semibold text-xs rounded-2xl transition active:scale-95 flex items-center justify-center gap-1"
+                >
+                  ⌫ 지우기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDigit("0")}
                   className="py-3.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-mono font-bold text-xl rounded-2xl transition active:scale-95 shadow-sm"
                 >
-                  {num}
+                  0
                 </button>
-              ))}
-              <button
-                type="button"
-                onClick={handleClear}
-                className="py-3.5 bg-slate-800/60 hover:bg-slate-800 active:bg-slate-700 text-slate-400 font-semibold text-xs rounded-2xl transition active:scale-95"
-              >
-                지우기
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDigit("0")}
-                className="py-3.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-mono font-bold text-xl rounded-2xl transition active:scale-95 shadow-sm"
-              >
-                0
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isLastProblem) handleNext();
-                  else setConfirmSubmitModal(true);
-                }}
-                className="py-3.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm rounded-2xl transition active:scale-95 shadow-sm flex items-center justify-center"
-              >
-                {isLastProblem ? "제출 ↵" : "다음 ➔"}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isLastProblem) handleNext();
+                    else setConfirmSubmitModal(true);
+                  }}
+                  className="py-3.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm rounded-2xl transition active:scale-95 shadow-sm flex items-center justify-center"
+                >
+                  {isLastProblem ? "제출 ↵" : "다음 ➔"}
+                </button>
+              </div>
+            )}
 
             {/* 문항 이전/다음 이동 바 */}
             <div className="flex items-center justify-between max-w-xs mx-auto pt-1">

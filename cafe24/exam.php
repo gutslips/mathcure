@@ -232,27 +232,43 @@ $total_count = count($problems);
                 </div>
 
                 <!-- 문제 카드 -->
-                <div class="bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 shadow-xl text-center space-y-6">
+                <div class="bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 shadow-xl text-center space-y-5">
                     <div id="q-text" class="text-3xl sm:text-5xl font-mono font-black text-white tracking-tight">
                         -- ÷ -- =
                     </div>
 
                     <div class="max-w-xs mx-auto">
-                        <div id="q-answer-display" class="w-full h-16 rounded-2xl bg-slate-950 border-2 border-slate-700 flex items-center justify-center text-3xl font-mono font-black text-emerald-400 tracking-wider">
+                        <div id="q-answer-display" class="w-full h-16 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 shadow-inner flex items-center justify-center text-3xl font-mono font-black text-emerald-400 tracking-wider">
                             <span class="text-slate-600 text-lg font-normal">답 입력</span>
+                            <span class="inline-block w-0.5 h-6 bg-slate-600 ml-1 animate-pulse"></span>
                         </div>
+                    </div>
+
+                    <!-- PC 키보드 & 터치 입력 안내 -->
+                    <div class="flex items-center justify-center">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 rounded-full border border-slate-700/80 text-[11px] text-slate-300">
+                            ⌨️ <strong class="text-emerald-400 font-semibold">PC 키보드 지원:</strong> 숫자(0~9) · Enter(다음) · Backspace(지우기)
+                        </span>
                     </div>
                 </div>
 
+                <!-- 가상 키패드 토글 바 (PC / 태블릿 선택) -->
+                <div class="flex items-center justify-between max-w-xs mx-auto text-xs px-1">
+                    <span class="text-slate-400 font-medium">화면 터치 키패드</span>
+                    <button type="button" onclick="toggleKeypad()" id="btn-toggle-keypad" class="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 transition">
+                        키패드 접기 ▲
+                    </button>
+                </div>
+
                 <!-- 가상 숫자 키패드 -->
-                <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-3 max-w-xs mx-auto grid grid-cols-3 gap-2" style="touch-action: manipulation;">
+                <div id="virtual-keypad" class="bg-slate-900/80 border border-slate-800 rounded-3xl p-3 max-w-xs mx-auto grid grid-cols-3 gap-2 transition-all duration-200" style="touch-action: manipulation;">
                     <?php for ($i = 1; $i <= 9; $i++): ?>
                         <button type="button" onclick="pressDigit('<?php echo $i; ?>')" class="py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-mono font-bold text-xl rounded-2xl transition active:scale-95 shadow-sm">
                             <?php echo $i; ?>
                         </button>
                     <?php endfor; ?>
-                    <button type="button" onclick="clearAnswer()" class="py-3.5 bg-slate-800/60 text-slate-400 font-semibold text-xs rounded-2xl transition active:scale-95">
-                        지우기
+                    <button type="button" onclick="backspaceAnswer()" class="py-3.5 bg-slate-800/60 hover:bg-slate-800 text-slate-400 font-semibold text-xs rounded-2xl transition active:scale-95 flex items-center justify-center gap-1">
+                        ⌫ 지우기
                     </button>
                     <button type="button" onclick="pressDigit('0')" class="py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-mono font-bold text-xl rounded-2xl transition active:scale-95 shadow-sm">
                         0
@@ -370,6 +386,20 @@ function updateTimerDisplay() {
     }
 }
 
+let keypadVisible = true;
+function toggleKeypad() {
+    keypadVisible = !keypadVisible;
+    const keypad = document.getElementById('virtual-keypad');
+    const btn = document.getElementById('btn-toggle-keypad');
+    if (keypadVisible) {
+        keypad.classList.remove('hidden');
+        btn.innerText = "키패드 접기 ▲";
+    } else {
+        keypad.classList.add('hidden');
+        btn.innerText = "키패드 펼치기 ▼";
+    }
+}
+
 function renderProblem(index) {
     currentIndex = index;
     const p = problems[index];
@@ -377,9 +407,9 @@ function renderProblem(index) {
     document.getElementById('q-text').innerText = cleanQ + " =";
     const disp = document.getElementById('q-answer-display');
     if (answers[index]) {
-        disp.innerHTML = "<span class='font-mono'>" + answers[index] + "</span>";
+        disp.innerHTML = "<span class='font-mono'>" + answers[index] + "</span><span class='inline-block w-0.5 h-7 bg-emerald-400 ml-1 animate-pulse'></span>";
     } else {
-        disp.innerHTML = "<span class='text-slate-600 text-lg font-normal'>답 입력</span>";
+        disp.innerHTML = "<span class='text-slate-600 text-lg font-normal'>답 입력</span><span class='inline-block w-0.5 h-6 bg-slate-600 ml-1 animate-pulse'></span>";
     }
 
     document.getElementById('problem-num-indicator').innerText = "Q" + (index + 1) + " / " + problems.length;
@@ -397,6 +427,19 @@ function pressDigit(num) {
     if (cur.length >= 6) return;
     answers[currentIndex] = cur + num;
     renderProblem(currentIndex);
+}
+
+function backspaceAnswer() {
+    let cur = answers[currentIndex] || "";
+    if (cur.length > 0) {
+        const nextVal = cur.slice(0, -1);
+        if (nextVal === "") {
+            delete answers[currentIndex];
+        } else {
+            answers[currentIndex] = nextVal;
+        }
+        renderProblem(currentIndex);
+    }
 }
 
 function clearAnswer() {
@@ -423,6 +466,47 @@ function nextOrSubmit() {
         confirmSubmitModal(true);
     }
 }
+
+// PC 물리 키보드 완벽 연동
+document.addEventListener('keydown', function(e) {
+    // 시험 진행 화면이 아닐 경우(대기실 or 제출완료) 무시
+    const testStep = document.getElementById('step-testing');
+    if (!testStep || testStep.classList.contains('hidden')) return;
+
+    // 제출 확인 모달이 열려있는 경우
+    const modal = document.getElementById('confirm-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+        if (e.key === 'Escape') {
+            confirmSubmitModal(false);
+            e.preventDefault();
+        } else if (e.key === 'Enter') {
+            submitExamFinal();
+            e.preventDefault();
+        }
+        return;
+    }
+
+    // 숫자 키 (상단 숫자열 및 우측 텐키패드)
+    if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        pressDigit(e.key);
+    } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        backspaceAnswer();
+    } else if (e.key === 'Delete') {
+        e.preventDefault();
+        clearAnswer();
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        nextOrSubmit();
+    } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevProblem();
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextProblem();
+    }
+});
 
 function updateAnsweredCount() {
     const answered = Object.keys(answers).length;
