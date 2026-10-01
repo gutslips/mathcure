@@ -351,6 +351,12 @@ function startExam() {
         alert("이름을 입력해 주세요.");
         return;
     }
+    // 모바일 OS 키패드가 남아있지 않도록 포커스 강제 해제
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
+    document.getElementById('student-name-input').blur();
+
     document.getElementById('display-student-name').innerText = studentName + " 학생";
     document.getElementById('step-intro').classList.add('hidden');
     document.getElementById('step-testing').classList.remove('hidden');

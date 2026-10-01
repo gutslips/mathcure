@@ -122,6 +122,10 @@ export default function ExamSessionPage({ params }: { params: Promise<{ code: st
       alert("응시자 이름을 입력해 주세요.");
       return;
     }
+    // 모바일 OS 키패드가 남아있지 않도록 포커스 강제 해제
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setStage("testing");
     if (exam?.timeLimitSec && exam.timeLimitSec > 0) {
       setRemainingSec(exam.timeLimitSec);
