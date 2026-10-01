@@ -109,6 +109,27 @@ $pending_count = ($logged_user && $logged_user['role'] === 'admin') ? get_pendin
                 display: none !important;
             }
 
+            /* 인쇄 분기 옵션 제어 (문제지만 1장 vs 정답지만 1장 vs 전체) */
+            body.print-only-problems #worksheet-page-2 {
+                display: none !important;
+            }
+            body.print-only-problems #worksheet-page-1 {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+
+            body.print-only-answers #worksheet-page-1 {
+                display: none !important;
+            }
+            body.print-only-answers #worksheet-page-2 {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+
+            body.hide-print-qr #print-qr-container {
+                display: none !important;
+            }
+
             /* 문제지 헤더 영역 인쇄 최적화 (모바일에서도 가로 배치 유지) */
             .sheet-header {
                 display: flex !important;

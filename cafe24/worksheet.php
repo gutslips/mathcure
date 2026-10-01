@@ -11,7 +11,41 @@ $active_student = get_active_student($pdo, $logged_user['id']);
 $t_ws = table('worksheets');
 $t_exams = table('exams');
 
-// 1. AJAX 요청 처리 (비동기 새 문제 생성, 문제집 보관, 시험 생성, 삭제)
+// worksheets 테이블에 code 컬럼 추가 (마이그레이션)
+try {
+    $pdo->exec("ALTER TABLE `{$t_ws}` ADD COLUMN `code` VARCHAR(30) NULL AFTER `id`, ADD INDEX (`code`)");
+} catch (Exception $e) {}
+
+// 오늘 날짜 기준 순번 채번 함수 (#YYYYMMDD-01, #YYYYMMDD-02 ...)
+function get_next_worksheet_code($pdo, $t_worksheets) {
+    $today = date('Ymd');
+    try {
+        $stmt = $pdo->prepare("SELECT `code` FROM `{$t_worksheets}` WHERE `code` LIKE ? ORDER BY `code` DESC LIMIT 1");
+        $stmt->execute(["{$today}-%"]);
+        $last_code = $stmt->fetchColumn();
+        if ($last_code && preg_match('/^(\d{8})-(\d+)$/', $last_code, $matches)) {
+            $next_num = (int)$matches[2] + 1;
+        } else {
+            $next_num = 1;
+        }
+        return sprintf("%s-%02d", $today, $next_num);
+    } catch (Exception $e) {
+        return sprintf("%s-%02d", $today, 1);
+    }
+}
+
+// 빠른 채점 URL 및 QR코드 생성 헬퍼
+function get_answer_qr_info($code) {
+    $clean_code = ltrim($code, '#');
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $current_dir = rtrim(dirname($_SERVER['REQUEST_URI']), '/\\');
+    $answer_url = "{$protocol}{$host}{$current_dir}/answer_key.php?code={$clean_code}";
+    $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" . urlencode($answer_url);
+    return ['answer_url' => $answer_url, 'qr_url' => $qr_url];
+}
+
+// 1. AJAX 요청 처리 (비동기 새 문제 생성, 문제집 보관, 시험 생성, 삭제, 답안 조회)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
@@ -23,16 +57,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $p_count = (int)($_POST['count'] ?? 20);
         $seed_val = 'ws_' . substr(md5(uniqid(mt_rand(), true)), 0, 8);
         $new_problems = generate_worksheet_problems($target_type, $p_count, $diff, $seed_val);
+        $code = get_next_worksheet_code($pdo, $t_ws);
+        $type_label = PROBLEM_TYPE_LABELS[$target_type] ?? $target_type;
+        $title = ($active_student['name'] ?? '홍길동') . "의 " . $type_label . " 맞춤 훈련지 #" . $code;
+        $ws_id = 'ws_' . bin2hex(random_bytes(8));
+
+        // 생성 즉시 자동 등록 (선생님이 별도 보관을 안 눌러도 QR 채점 및 일련번호 조회가 가능)
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO `{$t_ws}` 
+                (`id`, `code`, `student_id`, `title`, `subject`, `grade`, `difficulty`, `problem_type`, `count`, `seed`, `problems`)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $ws_id,
+                $code,
+                $active_student['id'] ?? null,
+                $title,
+                '나눗셈',
+                $active_student['grade'] ?? 5,
+                $diff,
+                $target_type,
+                $p_count,
+                $seed_val,
+                json_encode($new_problems, JSON_UNESCAPED_UNICODE)
+            ]);
+        } catch (Exception $e) {}
+
+        $qr_info = get_answer_qr_info($code);
 
         echo json_encode([
             'success' => true,
+            'id' => $ws_id,
+            'code' => $code,
             'type' => $target_type,
-            'type_label' => PROBLEM_TYPE_LABELS[$target_type] ?? $target_type,
+            'type_label' => $type_label,
             'difficulty' => $diff,
             'count' => $p_count,
             'seed' => $seed_val,
-            'title' => ($active_student['name'] ?? '홍길동') . "의 " . (PROBLEM_TYPE_LABELS[$target_type] ?? $target_type) . " 맞춤 훈련지",
+            'title' => $title,
             'subtitle' => "난이도: Level {$diff} · 문제 수: {$p_count}문항",
+            'qr_url' => $qr_info['qr_url'],
+            'answer_url' => $qr_info['answer_url'],
             'problems' => $new_problems
         ]);
         exit;
@@ -47,20 +113,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $p_count = (int)($_POST['count'] ?? 20);
         $seed_val = $_POST['seed'] ?? '';
         $problems_json = $_POST['problems'] ?? '[]';
+        $save_code = trim($_POST['code'] ?? '');
+        if (empty($save_code)) {
+            $save_code = get_next_worksheet_code($pdo, $t_ws);
+        }
 
         if (empty($title)) {
-            $title = ($active_student['name'] ?? '학생') . "의 " . (PROBLEM_TYPE_LABELS[$target_type] ?? $target_type) . " 맞춤 훈련지";
+            $title = ($active_student['name'] ?? '학생') . "의 " . (PROBLEM_TYPE_LABELS[$target_type] ?? $target_type) . " 맞춤 훈련지 #" . $save_code;
         }
 
         try {
             $ws_id = 'ws_' . bin2hex(random_bytes(8));
             $stmt = $pdo->prepare("
                 INSERT INTO `{$t_ws}` 
-                (`id`, `student_id`, `title`, `subject`, `grade`, `difficulty`, `problem_type`, `count`, `seed`, `problems`)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (`id`, `code`, `student_id`, `title`, `subject`, `grade`, `difficulty`, `problem_type`, `count`, `seed`, `problems`)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $ws_id,
+                $save_code,
                 $active_student['id'] ?? null,
                 $title,
                 '나눗셈',
@@ -71,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $seed_val,
                 $problems_json
             ]);
-            echo json_encode(['success' => true, 'id' => $ws_id, 'title' => $title]);
+            echo json_encode(['success' => true, 'id' => $ws_id, 'code' => $save_code, 'title' => $title]);
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
@@ -152,6 +223,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit;
     }
+
+    // [E] 빠른 답안 조회 (훈련번호 #YYYYMMDD-XX 또는 순번 검색)
+    if ($action === 'lookup_answers') {
+        header('Content-Type: application/json; charset=utf-8');
+        $search_code = trim($_POST['code'] ?? '');
+        $clean_code = ltrim($search_code, '#');
+
+        $candidates = [$clean_code, "#{$clean_code}"];
+        if (preg_match('/^\d{1,2}$/', $clean_code)) {
+            $today = date('Ymd');
+            $pad = str_pad($clean_code, 2, '0', STR_PAD_LEFT);
+            $candidates[] = "{$today}-{$pad}";
+            $candidates[] = "#{$today}-{$pad}";
+        }
+
+        try {
+            $in_p = implode(',', array_fill(0, count($candidates), '?'));
+            $stmt = $pdo->prepare("SELECT * FROM `{$t_ws}` WHERE `code` IN ({$in_p}) OR `id` = ? LIMIT 1");
+            $params = array_merge($candidates, [$clean_code]);
+            $stmt->execute($params);
+            $found = $stmt->fetch();
+
+            if ($found) {
+                $ans_problems = json_decode($found['problems'] ?? '[]', true) ?: [];
+                $qr_info = get_answer_qr_info($found['code'] ?? $clean_code);
+                echo json_encode([
+                    'success' => true,
+                    'worksheet' => [
+                        'id' => $found['id'],
+                        'code' => $found['code'] ?? $clean_code,
+                        'title' => $found['title'],
+                        'count' => $found['count'],
+                        'difficulty' => $found['difficulty'],
+                        'created_at' => $found['created_at'],
+                        'answer_url' => $qr_info['answer_url'],
+                        'problems' => $ans_problems
+                    ]
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'error' => "훈련번호(#{$clean_code})에 해당하는 문제지를 찾을 수 없습니다."]);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
+    }
 }
 
 // 2. 화면 로드 처리 (HTML 렌더링 시에만 header.php 호출)
@@ -166,6 +283,8 @@ $tab = $_GET['tab'] ?? 'worksheet';
 
 $is_saved_view = false;
 $saved_worksheet = null;
+$current_code = null;
+$current_ws_id = null;
 
 if ($id) {
     try {
@@ -178,6 +297,16 @@ if ($id) {
             $count = (int)$saved_worksheet['count'];
             $seed = $saved_worksheet['seed'];
             $is_saved_view = true;
+            $current_ws_id = $saved_worksheet['id'];
+            $current_code = $saved_worksheet['code'] ?? null;
+
+            if (empty($current_code)) {
+                $current_code = get_next_worksheet_code($pdo, $t_ws);
+                try {
+                    $up = $pdo->prepare("UPDATE `{$t_ws}` SET `code` = ? WHERE `id` = ?");
+                    $up->execute([$current_code, $current_ws_id]);
+                } catch (Exception $e) {}
+            }
 
             if (!empty($saved_worksheet['problems'])) {
                 $decoded = json_decode($saved_worksheet['problems'], true);
@@ -186,12 +315,11 @@ if ($id) {
                 }
             }
 
-            // 이전에 problems 컬럼 없이 저장되었던 레코드인 경우, seed로 문제를 생성하여 DB에 영구 동결 저장
             if (empty($problems)) {
                 $problems = generate_worksheet_problems($type, $count, $difficulty, $seed);
                 try {
                     $up = $pdo->prepare("UPDATE `{$t_ws}` SET `problems` = ? WHERE `id` = ?");
-                    $up->execute([json_encode($problems), $id]);
+                    $up->execute([json_encode($problems, JSON_UNESCAPED_UNICODE), $id]);
                 } catch (Exception $e) {}
             }
         }
@@ -200,40 +328,109 @@ if ($id) {
 
 if (!isset($problems) || empty($problems)) {
     $problems = generate_worksheet_problems($type, $count, $difficulty, $seed);
+    $current_code = get_next_worksheet_code($pdo, $t_ws);
+    $current_ws_id = 'ws_' . bin2hex(random_bytes(8));
+    $type_label = PROBLEM_TYPE_LABELS[$type] ?? $type;
+    $initial_title = ($active_student['name'] ?? '홍길동') . "의 " . $type_label . " 맞춤 훈련지 #" . $current_code;
+
+    // 초기 화면 생성 시에도 DB에 자동 등록 (QR 스캔 & 빠른 채점 즉시 가능)
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO `{$t_ws}` 
+            (`id`, `code`, `student_id`, `title`, `subject`, `grade`, `difficulty`, `problem_type`, `count`, `seed`, `problems`)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $current_ws_id,
+            $current_code,
+            $active_student['id'] ?? null,
+            $initial_title,
+            '나눗셈',
+            $active_student['grade'] ?? 5,
+            $difficulty,
+            $type,
+            $count,
+            $seed,
+            json_encode($problems, JSON_UNESCAPED_UNICODE)
+        ]);
+    } catch (Exception $e) {}
 }
+
+$qr_info = get_answer_qr_info($current_code);
+$qr_url = $qr_info['qr_url'];
+$answer_url = $qr_info['answer_url'];
 
 // 보관함 목록 조회
 $saved_list = [];
 try {
-    $stmt = $pdo->query("SELECT `id`, `title`, `problem_type`, `difficulty`, `count`, `created_at` FROM `{$t_ws}` ORDER BY `created_at` DESC");
+    $stmt = $pdo->query("SELECT `id`, `code`, `title`, `problem_type`, `difficulty`, `count`, `created_at` FROM `{$t_ws}` ORDER BY `created_at` DESC");
     $saved_list = $stmt->fetchAll();
 } catch (Exception $e) {}
 ?>
 
 <!-- 상단 헤더 및 액션 바 (인쇄 시 숨김) -->
-<div class="no-print bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-xs">
+<div class="no-print bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-xs space-y-4">
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
             <div class="flex items-center gap-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-slate-900"></span>
                 <h1 class="text-xl font-bold text-slate-900">맞춤 훈련지 생성 및 보관함</h1>
+                <span id="top-badge-code" class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-mono font-bold rounded-lg">
+                    #<?php echo htmlspecialchars($current_code); ?>
+                </span>
             </div>
             <p class="text-xs text-slate-500 mt-1">
-                원하는 문제 세트를 보관하여 언제든 다시 인쇄하거나 학생 전용 시험 링크(QR)로 전송할 수 있습니다.
+                일련번호가 자동 부여되며, 문제지만 1장 인쇄 후 스마트폰 QR로 0.1초 즉시 채점할 수 있습니다.
             </p>
         </div>
 
-        <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
-            <button onclick="window.print()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm active:scale-95">
+        <!-- 핵심 인쇄 & 액션 버튼군 -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- [1] 문제지만 1장 인쇄 (메인 다크 버튼) -->
+            <button type="button" onclick="printWorksheetOnly()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm active:scale-95">
                 <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-                A4 인쇄하기 <span class="hidden sm:inline">(Ctrl+P)</span>
+                📄 문제지만 인쇄 (A4 1장)
             </button>
+
+            <!-- [2] 정답지만 1장 인쇄 -->
+            <button type="button" onclick="printAnswersOnly()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs active:scale-95">
+                ✅ 정답지만 인쇄 (1장)
+            </button>
+
+            <!-- [3] 전체 2장 인쇄 -->
+            <button type="button" onclick="printFullWorksheet()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition active:scale-95">
+                🖨️ 전체 인쇄 (2장)
+            </button>
+
+            <!-- [4] 이 문제집 보관하기 -->
             <button type="button" onclick="saveCurrentWorksheet()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm active:scale-95">
-                ★ 이 문제집 보관하기
+                ★ 보관하기
             </button>
-            <button type="button" onclick="openExamModal()" class="col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm active:scale-95">
-                📱 온라인 시험 링크 & QR
+
+            <!-- [5] 온라인 시험 모달 -->
+            <button type="button" onclick="openExamModal()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm active:scale-95">
+                📱 온라인 시험 링크
             </button>
+        </div>
+    </div>
+
+    <!-- 보조 옵션 바: QR코드 On/Off 토글 + 빠른 답안 조회 검색창 -->
+    <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-700 select-none">
+                <input type="checkbox" id="toggle-print-qr" checked onchange="handleQrToggle(this.checked)" class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                <span>채점용 미니 QR코드 인쇄 포함 <span class="text-slate-400 font-normal">(학생 커닝 방지 보안 잠금 적용)</span></span>
+            </label>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+            <span class="text-slate-500 font-semibold whitespace-nowrap">🔍 빠른 답안 조회:</span>
+            <div class="flex items-center gap-1">
+                <input type="text" id="quick-search-code" placeholder="예: #<?php echo htmlspecialchars($current_code); ?> 또는 순번" class="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono w-44 focus:outline-none focus:ring-1 focus:ring-slate-900">
+                <button type="button" onclick="quickLookupAnswer()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition">
+                    조회
+                </button>
+            </div>
         </div>
     </div>
 
@@ -368,9 +565,14 @@ try {
 <div id="worksheet-page-1" class="a4-sheet bg-white p-4 sm:p-12 mb-8 border border-slate-200 sm:rounded-2xl shadow-sm text-slate-900 transition-opacity duration-300">
     <div class="sheet-header border-b-2 border-slate-900 pb-3 mb-6 flex flex-col sm:flex-row justify-between sm:items-end gap-3">
         <div>
-            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
-                MATH CURE · 초5 나눗셈 자동화 프로젝트
-            </span>
+            <div class="flex items-center gap-2">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
+                    MATH CURE · 초5 나눗셈 자동화 프로젝트
+                </span>
+                <span id="display-worksheet-code-badge" class="px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-[11px] font-bold tracking-wider">
+                    #<?php echo htmlspecialchars($current_code); ?>
+                </span>
+            </div>
             <h2 id="display-worksheet-title" class="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
                 <?php echo htmlspecialchars($is_saved_view && $saved_worksheet ? $saved_worksheet['title'] : ((PROBLEM_TYPE_LABELS[$type] ?? $type) . " 맞춤 훈련지")); ?>
             </h2>
@@ -380,6 +582,12 @@ try {
         </div>
 
         <div class="sheet-student-info flex flex-wrap sm:flex-col sm:text-right gap-x-4 gap-y-1 text-xs">
+            <div>
+                <span class="text-slate-500">훈련 번호:</span>
+                <strong id="display-worksheet-code-text" class="font-mono text-slate-900 font-bold ml-1">
+                    #<?php echo htmlspecialchars($current_code); ?>
+                </strong>
+            </div>
             <div>
                 <span class="text-slate-500">학생 이름:</span>
                 <span class="font-bold underline underline-offset-4 inline-block min-w-[70px] text-center">
@@ -425,9 +633,24 @@ try {
     </div>
 
     <div class="sheet-footer mt-12 pt-4 border-t border-slate-300 flex justify-between items-center text-[11px] text-slate-400">
-        <span>초5 나눗셈 트레이너 · MathCure</span>
-        <span id="display-seed-text-1">Seed: <?php echo htmlspecialchars($seed); ?></span>
-        <span>Page 1 / 2</span>
+        <div class="flex items-center gap-2">
+            <span>초5 나눗셈 트레이너 · MathCure</span>
+            <strong class="font-mono text-slate-700" id="display-footer-code">#<?php echo htmlspecialchars($current_code); ?></strong>
+        </div>
+
+        <!-- 선생님 빠른 채점 미니 QR (체크박스로 숨김 가능) -->
+        <div id="print-qr-container" class="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200">
+            <img id="print-qr-img" src="<?php echo htmlspecialchars($qr_url); ?>" alt="채점 QR" class="w-8 h-8 border border-slate-300 rounded bg-white p-0.5">
+            <div class="text-left text-[8.5px] leading-tight text-slate-600 font-sans">
+                <span class="font-bold text-slate-900 block flex items-center gap-0.5">
+                    <svg class="w-2.5 h-2.5 inline text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                    선생님 빠른 채점
+                </span>
+                <span class="text-slate-400">스마트폰 스캔 (보안 잠금)</span>
+            </div>
+        </div>
+
+        <span id="display-page-num-1">Page 1 / 1</span>
     </div>
 </div>
 
@@ -442,7 +665,7 @@ try {
                 ANSWER KEY · 정답 및 빠른 채점표
             </span>
             <h2 id="display-answers-title" class="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
-                <?php echo htmlspecialchars($is_saved_view && $saved_worksheet ? $saved_worksheet['title'] : ((PROBLEM_TYPE_LABELS[$type] ?? $type) . " 맞춤 훈련지")); ?> - [ 정답지 ]
+                <?php echo htmlspecialchars($is_saved_view && $saved_worksheet ? $saved_worksheet['title'] : ((PROBLEM_TYPE_LABELS[$type] ?? $type) . " 맞춤 훈련지")); ?> - [ 정답지 #<span id="display-answers-title-code"><?php echo htmlspecialchars($current_code); ?></span> ]
             </h2>
             <span id="display-answers-subtitle" class="text-xs text-slate-600 font-medium">
                 초5 나눗셈 자동화 빠른 채점 기준표
@@ -475,8 +698,38 @@ try {
     </div>
 
     <div class="sheet-footer mt-8 pt-4 border-t border-slate-300 flex justify-between items-center text-[11px] text-slate-400">
-        <span>초5 나눗셈 트레이너 · MathCure 정답지</span>
-        <span id="display-seed-text-2">Page 2 / 2</span>
+        <div class="flex items-center gap-2">
+            <span>초5 나눗셈 트레이너 · MathCure 정답지</span>
+            <strong class="font-mono text-slate-700" id="display-answers-footer-code">#<?php echo htmlspecialchars($current_code); ?></strong>
+        </div>
+        <span>Page 2 / 2</span>
+    </div>
+</div>
+
+<!-- 빠른 답안 조회 팝업 모달 (PC/태블릿에서 상단 검색 시 즉시 표시) -->
+<div id="quick-ans-modal" class="no-print hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative space-y-4 my-8">
+        <button onclick="closeQuickAnsModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+        <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-xs">✓</span>
+            <div>
+                <h3 id="modal-ans-title" class="text-base font-bold text-slate-900">빠른 정답 조회</h3>
+                <span id="modal-ans-code" class="text-xs font-mono font-bold text-emerald-600"></span>
+            </div>
+        </div>
+
+        <div id="modal-ans-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-96 overflow-y-auto p-1">
+            <!-- 답안 카드 동적 삽입 -->
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex gap-2">
+            <a id="modal-ans-mobile-link" href="#" target="_blank" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-center font-bold text-xs rounded-xl transition flex items-center justify-center gap-1">
+                📱 모바일 전용 채점기 열기 ➔
+            </a>
+            <button type="button" onclick="closeQuickAnsModal()" class="flex-1 py-2.5 bg-slate-900 text-white font-bold text-xs rounded-xl">
+                닫기
+            </button>
+        </div>
     </div>
 </div>
 
@@ -605,7 +858,115 @@ let currentSeed = <?php echo json_encode($seed); ?>;
 let currentType = <?php echo json_encode($type); ?>;
 let currentDifficulty = <?php echo (int)$difficulty; ?>;
 let currentCount = <?php echo (int)count($problems); ?>;
+let currentCode = <?php echo json_encode($current_code); ?>;
+let currentWsId = <?php echo json_encode($current_ws_id); ?>;
+let currentQrUrl = <?php echo json_encode($qr_url); ?>;
 let createdExamData = null;
+
+// [1] 문제지만 1장 인쇄 (기본 추천)
+function printWorksheetOnly() {
+    document.getElementById('display-page-num-1').innerText = "Page 1 / 1";
+    document.body.classList.remove('print-only-answers');
+    document.body.classList.add('print-only-problems');
+    const qrChecked = document.getElementById('toggle-print-qr')?.checked ?? true;
+    if (!qrChecked) document.body.classList.add('hide-print-qr');
+    else document.body.classList.remove('hide-print-qr');
+
+    window.print();
+
+    setTimeout(() => {
+        document.body.classList.remove('print-only-problems', 'hide-print-qr');
+    }, 1000);
+}
+
+// [2] 정답지만 1장 인쇄
+function printAnswersOnly() {
+    document.body.classList.remove('print-only-problems', 'hide-print-qr');
+    document.body.classList.add('print-only-answers');
+
+    window.print();
+
+    setTimeout(() => {
+        document.body.classList.remove('print-only-answers');
+    }, 1000);
+}
+
+// [3] 전체 2장 인쇄
+function printFullWorksheet() {
+    document.getElementById('display-page-num-1').innerText = "Page 1 / 2";
+    document.body.classList.remove('print-only-problems', 'print-only-answers');
+    const qrChecked = document.getElementById('toggle-print-qr')?.checked ?? true;
+    if (!qrChecked) document.body.classList.add('hide-print-qr');
+    else document.body.classList.remove('hide-print-qr');
+
+    window.print();
+
+    setTimeout(() => {
+        document.body.classList.remove('hide-print-qr');
+    }, 1000);
+}
+
+// QR코드 인쇄 포함 토글
+function handleQrToggle(checked) {
+    const qrEl = document.getElementById('print-qr-container');
+    if (qrEl) {
+        if (checked) qrEl.classList.remove('hidden');
+        else qrEl.classList.add('hidden');
+    }
+}
+
+// 초스피드 훈련번호 답안 조회 (PC 모달)
+function quickLookupAnswer() {
+    const inputEl = document.getElementById('quick-search-code');
+    const codeVal = inputEl ? inputEl.value.trim() : '';
+    if (!codeVal) {
+        alert("조회할 훈련번호(예: #" + currentCode + " 또는 뒷자리 번호)를 입력해 주세요.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'lookup_answers');
+    formData.append('code', codeVal);
+
+    fetch('worksheet.php', { method: 'POST', body: formData })
+        .then(async (r) => {
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch(e) {
+                throw new Error("서버 응답 오류");
+            }
+        })
+        .then(data => {
+            if (data.success && data.worksheet) {
+                const ws = data.worksheet;
+                document.getElementById('modal-ans-title').innerText = ws.title;
+                document.getElementById('modal-ans-code').innerText = "#" + ws.code;
+                document.getElementById('modal-ans-mobile-link').href = ws.answer_url;
+
+                const grid = document.getElementById('modal-ans-grid');
+                grid.innerHTML = '';
+                ws.problems.forEach((p, idx) => {
+                    const card = document.createElement('div');
+                    card.className = "p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between";
+                    card.innerHTML = `
+                        <span class="font-bold text-slate-500 text-xs font-mono">${idx + 1}번</span>
+                        <span class="font-bold text-slate-900 text-base font-mono">${p.answer}</span>
+                    `;
+                    grid.appendChild(card);
+                });
+
+                document.getElementById('quick-ans-modal').classList.remove('hidden');
+            } else {
+                alert(data.error || "해당 훈련번호를 찾을 수 없습니다.");
+            }
+        })
+        .catch(e => alert("답안 조회 중 오류가 발생했습니다: " + e.message));
+}
+
+function closeQuickAnsModal() {
+    document.getElementById('quick-ans-modal').classList.add('hidden');
+}
 
 // [비동기 새 문제 생성 - 화면 깜빡임/새로고침 없음]
 function generateNewProblemsAsync() {
@@ -646,11 +1007,23 @@ function generateNewProblemsAsync() {
                 currentType = data.type;
                 currentDifficulty = data.difficulty;
                 currentCount = data.count;
+                currentCode = data.code;
+                currentWsId = data.id;
+                currentQrUrl = data.qr_url;
 
-                // 타이틀 및 서브타이틀 갱신
+                // 타이틀, 서브타이틀 및 일련번호 갱신
+                document.getElementById('top-badge-code').innerText = "#" + data.code;
+                document.getElementById('display-worksheet-code-badge').innerText = "#" + data.code;
+                document.getElementById('display-worksheet-code-text').innerText = "#" + data.code;
+                document.getElementById('display-footer-code').innerText = "#" + data.code;
+                document.getElementById('display-answers-footer-code').innerText = "#" + data.code;
+                document.getElementById('display-answers-title-code').innerText = data.code;
+                document.getElementById('print-qr-img').src = data.qr_url;
+                document.getElementById('quick-search-code').placeholder = "예: #" + data.code + " 또는 순번";
+
                 document.getElementById('display-worksheet-title').innerText = data.title;
                 document.getElementById('display-worksheet-subtitle').innerText = data.subtitle;
-                document.getElementById('display-answers-title').innerText = data.title + " - [ 정답지 ]";
+                document.getElementById('display-answers-title').innerHTML = `${data.title} - [ 정답지 #<span id="display-answers-title-code">${data.code}</span> ]`;
                 document.getElementById('display-seed-text-1').innerText = "Seed: " + data.seed;
 
                 // 문제 리스트 (1페이지) DOM 갱신
@@ -694,7 +1067,7 @@ function generateNewProblemsAsync() {
         })
         .catch(e => alert("문제 생성 중 통신 오류가 발생했습니다."))
         .finally(() => {
-            btn.innerText = "새 문제 생성";
+            btn.innerText = "새 문제 세트 생성하기 (↺ 새로고침)";
             btn.disabled = false;
             p1.style.opacity = '1';
             p2.style.opacity = '1';
@@ -730,13 +1103,14 @@ function toggleCustomExpire(val) {
 }
 
 function saveCurrentWorksheet() {
-    const defaultTitle = "<?php echo htmlspecialchars($active_student['name'] ?? '학생'); ?>의 " + (document.getElementById('gen-opt-type').selectedOptions[0]?.text || '맞춤 훈련지') + " " + currentCount + "제";
+    const defaultTitle = "<?php echo htmlspecialchars($active_student['name'] ?? '학생'); ?>의 " + (document.getElementById('gen-opt-type').selectedOptions[0]?.text || '맞춤 훈련지') + " " + currentCount + "제 #" + currentCode;
     const title = prompt("보관할 문제집 이름을 입력해 주세요:", defaultTitle);
     if (!title || !title.trim()) return;
 
     const formData = new FormData();
     formData.append('action', 'save_worksheet');
     formData.append('title', title.trim());
+    formData.append('code', currentCode);
     formData.append('problem_type', currentType);
     formData.append('difficulty', currentDifficulty);
     formData.append('count', currentCount);
