@@ -34,10 +34,47 @@ function get_db() {
 
     try {
         $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+        ensure_schema_updated($pdo);
         return $pdo;
     } catch (PDOException $e) {
         die("데이터베이스 연결 실패: " . htmlspecialchars($e->getMessage()));
     }
+}
+
+function ensure_schema_updated(PDO $pdo) {
+    static $migrated = false;
+    if ($migrated) return;
+    $migrated = true;
+    $prefix = defined('DB_PREFIX') ? DB_PREFIX : 'mc_';
+
+    try {
+        $pdo->exec("ALTER TABLE `{$prefix}worksheets` ADD COLUMN `problems` LONGTEXT NULL AFTER `seed`");
+    } catch (Exception $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `{$prefix}exams` (
+                `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+                `code` VARCHAR(10) NOT NULL UNIQUE,
+                `title` VARCHAR(100) NOT NULL,
+                `worksheet_id` VARCHAR(36) NULL,
+                `student_name` VARCHAR(50) NULL,
+                `time_limit_sec` INT NOT NULL DEFAULT 600,
+                `status` ENUM('active', 'completed', 'expired') NOT NULL DEFAULT 'active',
+                `problems` LONGTEXT NOT NULL,
+                `show_result` TINYINT(1) NOT NULL DEFAULT 1,
+                `score` INT NULL,
+                `total_count` INT NULL,
+                `results` LONGTEXT NULL,
+                `started_at` DATETIME NULL,
+                `submitted_at` DATETIME NULL,
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX (`code`),
+                INDEX (`status`),
+                INDEX (`worksheet_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+    } catch (Exception $e) {}
 }
 
 function table($name) {

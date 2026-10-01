@@ -1,6 +1,12 @@
 <?php
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/lib/auth.php';
+require_once __DIR__ . '/lib/student.php';
 require_once __DIR__ . '/lib/generators.php';
+
+$pdo = get_db();
+$logged_user = require_login($pdo);
+$active_student = get_active_student($pdo, $logged_user['id']);
 
 $t_ws = table('worksheets');
 $t_exams = table('exams');
@@ -119,7 +125,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// 2. 화면 로드 처리
+// 2. 화면 로드 처리 (HTML 렌더링 시에만 header.php 호출)
+require_once __DIR__ . '/includes/header.php';
+
 $id = $_GET['id'] ?? null;
 $type = $_GET['type'] ?? 'divide5';
 $difficulty = (int)($_GET['difficulty'] ?? 2);
@@ -526,7 +534,15 @@ function saveCurrentWorksheet() {
     formData.append('problems', JSON.stringify(currentProblems));
 
     fetch('worksheet.php', { method: 'POST', body: formData })
-        .then(r => r.json())
+        .then(async (r) => {
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch (err) {
+                console.error("Server response:", text);
+                throw new Error("서버 응답 오류 (JSON 파싱 실패)");
+            }
+        })
         .then(data => {
             if (data.success) {
                 alert("'" + data.title + "' 문제집이 보관함에 저장되었습니다!");
@@ -535,7 +551,10 @@ function saveCurrentWorksheet() {
                 alert("저장 실패: " + (data.error || '알 수 없는 오류'));
             }
         })
-        .catch(e => alert("네트워크 통신 오류"));
+        .catch(e => {
+            console.error(e);
+            alert("통신 오류 발생: " + e.message);
+        });
 }
 
 function deleteSavedWorksheet(id, title) {
@@ -545,14 +564,22 @@ function deleteSavedWorksheet(id, title) {
     formData.append('id', id);
 
     fetch('worksheet.php', { method: 'POST', body: formData })
-        .then(r => r.json())
+        .then(async (r) => {
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch (err) {
+                throw new Error("서버 응답 오류");
+            }
+        })
         .then(data => {
             if (data.success) {
                 location.reload();
             } else {
                 alert("삭제 실패: " + (data.error || '알 수 없는 오류'));
             }
-        });
+        })
+        .catch(e => alert("삭제 중 오류 발생: " + e.message));
 }
 
 function openExamModal() {
@@ -578,7 +605,15 @@ function submitCreateExam() {
     formData.append('problems', JSON.stringify(currentProblems));
 
     fetch('worksheet.php', { method: 'POST', body: formData })
-        .then(r => r.json())
+        .then(async (r) => {
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch (err) {
+                console.error("Server response:", text);
+                throw new Error("서버 응답 오류");
+            }
+        })
         .then(data => {
             if (data.success) {
                 document.getElementById('res-exam-title').innerText = data.title;
@@ -592,7 +627,8 @@ function submitCreateExam() {
             } else {
                 alert("시험 생성 실패: " + (data.error || '알 수 없는 오류'));
             }
-        });
+        })
+        .catch(e => alert("시험 생성 중 오류 발생: " + e.message));
 }
 
 function copyExamLink() {
