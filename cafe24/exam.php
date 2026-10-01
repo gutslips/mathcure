@@ -346,16 +346,20 @@ let timerInterval = null;
 let studentName = "";
 
 function startExam() {
-    studentName = document.getElementById('student-name-input').value.trim();
+    const nameInput = document.getElementById('student-name-input');
+    studentName = nameInput ? nameInput.value.trim() : "";
     if (!studentName) {
         alert("이름을 입력해 주세요.");
         return;
     }
-    // 모바일 OS 키패드가 남아있지 않도록 포커스 강제 해제
+    // 안드로이드 크롬 등 모바일 OS 키패드가 남아있지 않도록 input 비활성화 및 포커스 완전 해제
+    if (nameInput) {
+        nameInput.blur();
+        nameInput.disabled = true;
+    }
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
     }
-    document.getElementById('student-name-input').blur();
 
     document.getElementById('display-student-name').innerText = studentName + " 학생";
     document.getElementById('step-intro').classList.add('hidden');
