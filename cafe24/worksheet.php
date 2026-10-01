@@ -289,6 +289,7 @@ $difficulty = (int)($_GET['difficulty'] ?? 2);
 $count = (int)($_GET['count'] ?? 20);
 $seed = $_GET['seed'] ?? ('ws_' . substr(md5(uniqid(mt_rand(), true)), 0, 8));
 $tab = $_GET['tab'] ?? 'worksheet';
+$open_archive = (isset($_GET['archive']) && $_GET['archive'] == '1');
 
 $is_saved_view = false;
 $saved_worksheet = null;
@@ -489,7 +490,7 @@ try {
 </div>
 
 <!-- 저장된 보관함 뷰 (기본 숨김 또는 토글) -->
-<div id="archive-section" class="no-print hidden bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-xs space-y-4">
+<div id="archive-section" class="no-print <?php echo $open_archive ? '' : 'hidden'; ?> bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-xs space-y-4">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
         <div>
             <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -882,18 +883,26 @@ let currentWsId = <?php echo json_encode($current_ws_id); ?>;
 let currentQrUrl = <?php echo json_encode($qr_url); ?>;
 let createdExamData = null;
 
-// [1] 문제지만 1장 인쇄 (기본 추천)
+// [1] 문제지만 1장 인쇄 (무조건 QR 부착 및 보관 후 인쇄 ➔ 보관함으로 이동)
 function printWorksheetOnly() {
     if (!currentCode) {
-        if (confirm("이 문제집을 보관하고 채점용 고유 QR코드(#일련번호)를 발급받아 인쇄하시겠습니까?\n\n[확인]: 공식 번호 & 채점 QR 발급 후 인쇄 (권장)\n[취소]: 번호/QR 없이 연습용으로 바로 인쇄")) {
-            autoSaveAndPrint(() => doPrintWorksheetOnly());
-            return;
-        }
+        autoSaveAndPrint(() => {
+            doPrintWorksheetOnly(() => {
+                if (currentWsId) {
+                    location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
+                }
+            });
+        });
+        return;
     }
-    doPrintWorksheetOnly();
+    doPrintWorksheetOnly(() => {
+        if (currentWsId) {
+            location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
+        }
+    });
 }
 
-function doPrintWorksheetOnly() {
+function doPrintWorksheetOnly(afterPrintCallback) {
     document.getElementById('display-page-num-1').innerText = "Page 1 / 1";
     document.body.classList.remove('print-only-answers');
     document.body.classList.add('print-only-problems');
@@ -905,11 +914,28 @@ function doPrintWorksheetOnly() {
 
     setTimeout(() => {
         document.body.classList.remove('print-only-problems', 'hide-print-qr');
+        if (typeof afterPrintCallback === 'function') {
+            afterPrintCallback();
+        }
     }, 1000);
 }
 
 // [2] 정답지만 1장 인쇄
 function printAnswersOnly() {
+    if (!currentCode) {
+        autoSaveAndPrint(() => {
+            doPrintAnswersOnly(() => {
+                if (currentWsId) {
+                    location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
+                }
+            });
+        });
+        return;
+    }
+    doPrintAnswersOnly();
+}
+
+function doPrintAnswersOnly(afterPrintCallback) {
     document.body.classList.remove('print-only-problems', 'hide-print-qr');
     document.body.classList.add('print-only-answers');
 
@@ -917,21 +943,32 @@ function printAnswersOnly() {
 
     setTimeout(() => {
         document.body.classList.remove('print-only-answers');
+        if (typeof afterPrintCallback === 'function') {
+            afterPrintCallback();
+        }
     }, 1000);
 }
 
-// [3] 전체 2장 인쇄
+// [3] 전체 2장 인쇄 (무조건 QR 부착 및 보관 후 인쇄 ➔ 보관함으로 이동)
 function printFullWorksheet() {
     if (!currentCode) {
-        if (confirm("이 문제집을 보관하고 채점용 고유 QR코드(#일련번호)를 발급받아 인쇄하시겠습니까?\n\n[확인]: 공식 번호 & 채점 QR 발급 후 인쇄 (권장)\n[취소]: 번호/QR 없이 연습용으로 바로 인쇄")) {
-            autoSaveAndPrint(() => doPrintFullWorksheet());
-            return;
-        }
+        autoSaveAndPrint(() => {
+            doPrintFullWorksheet(() => {
+                if (currentWsId) {
+                    location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
+                }
+            });
+        });
+        return;
     }
-    doPrintFullWorksheet();
+    doPrintFullWorksheet(() => {
+        if (currentWsId) {
+            location.href = `worksheet.php?id=${encodeURIComponent(currentWsId)}&archive=1`;
+        }
+    });
 }
 
-function doPrintFullWorksheet() {
+function doPrintFullWorksheet(afterPrintCallback) {
     document.getElementById('display-page-num-1').innerText = "Page 1 / 2";
     document.body.classList.remove('print-only-problems', 'print-only-answers');
     const qrChecked = document.getElementById('toggle-print-qr')?.checked ?? true;
@@ -942,6 +979,9 @@ function doPrintFullWorksheet() {
 
     setTimeout(() => {
         document.body.classList.remove('hide-print-qr');
+        if (typeof afterPrintCallback === 'function') {
+            afterPrintCallback();
+        }
     }, 1000);
 }
 
@@ -1312,7 +1352,8 @@ function saveCurrentWorksheet() {
                     arcBtn.innerHTML = `📁 보관함 목록 (${newCount})`;
                 }
 
-                alert(`'${data.title}' 문제집이 보관되었습니다!\n\n공식 훈련번호 #${data.code} 와 스마트폰 빠른 채점 QR코드가 정상 발급되었습니다.`);
+                alert(`'${data.title}' 문제집이 보관되었습니다!\n\n공식 훈련번호 #${data.code} 와 스마트폰 빠른 채점 QR코드가 발급되었습니다.`);
+                location.href = `worksheet.php?id=${encodeURIComponent(data.id)}&archive=1`;
             } else {
                 alert("저장 실패: " + (data.error || '알 수 없는 오류'));
             }
