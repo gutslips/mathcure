@@ -3,7 +3,6 @@
     <footer class="no-print bg-white border-t border-slate-200 mt-12 py-6 text-center text-xs text-slate-500 mb-16 md:mb-0">
         <div class="max-w-7xl mx-auto px-4">
             <p>초5 연산 트레이너 &copy; <?php echo date('Y'); ?> MathCure. All rights reserved.</p>
-            <p class="mt-1 text-[11px] text-slate-400">카페24 웹호스팅 (PHP + MySQL) 최적화 PWA 버전</p>
         </div>
     </footer>
 
