@@ -46,6 +46,24 @@ if (empty($problems)) {
 }
 ?>
 
+<style>
+@keyframes popFeedback {
+    0% { transform: scale(0.85); opacity: 0; }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop-feedback {
+    animation: popFeedback 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes borderFlashSuccess {
+    0% { border-color: #10b981; background-color: #ecfdf5; }
+    100% { border-color: #cbd5e1; background-color: #f8fafc; }
+}
+.flash-correct {
+    animation: borderFlashSuccess 0.4s ease-out;
+}
+</style>
+
 <div class="max-w-2xl mx-auto space-y-6">
     <?php if ($worksheet_title): ?>
         <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-xs text-emerald-950 shadow-xs">
@@ -100,14 +118,14 @@ if (empty($problems)) {
                 <button id="submit-btn" onclick="checkPracticeAnswer()" class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition active:scale-98">
                     정답 확인 (Enter)
                 </button>
-                <button id="next-btn" onclick="nextPracticeProblem()" class="hidden flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition active:scale-98 shadow-sm">
-                    다음 문제 ➔ (Enter)
+                <button id="next-btn" onclick="nextPracticeProblem()" class="hidden flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-sm transition active:scale-98 shadow-sm">
+                    오답 확인 후 다음 문제 ➔ (Enter)
                 </button>
             </div>
         </div>
 
         <!-- 피드백 메시지 박스 -->
-        <div id="feedback-box" class="hidden p-4 rounded-xl text-sm font-semibold"></div>
+        <div id="feedback-box" class="hidden p-4 rounded-xl text-sm font-semibold max-w-xs mx-auto"></div>
 
         <!-- 가상 키패드 토글 바 -->
         <div class="flex items-center justify-between max-w-xs mx-auto text-xs px-1 pt-1">
@@ -206,7 +224,13 @@ function updateAnswerDisplay() {
     }
 }
 
+let autoAdvanceTimer = null;
+
 function loadPractice(index) {
+    if (autoAdvanceTimer) {
+        clearTimeout(autoAdvanceTimer);
+        autoAdvanceTimer = null;
+    }
     currentIndex = index;
     isAnswerChecked = false;
     currentAnswerVal = "";
@@ -214,6 +238,11 @@ function loadPractice(index) {
 
     document.getElementById('p-counter').innerText = `${index + 1} / ${problems.length}`;
     document.getElementById('p-question').innerText = p.question;
+
+    const disp = document.getElementById('p-answer-display');
+    if (disp) {
+        disp.classList.remove('flash-correct');
+    }
 
     updateAnswerDisplay();
 
@@ -226,7 +255,7 @@ function loadPractice(index) {
     }
 
     const feedback = document.getElementById('feedback-box');
-    feedback.className = 'hidden p-4 rounded-xl text-sm font-semibold';
+    feedback.className = 'hidden p-4 rounded-xl text-sm font-semibold max-w-xs mx-auto';
     feedback.innerHTML = '';
 
     problemStartTime = Date.now();
@@ -257,6 +286,7 @@ function onKeypadAction() {
     if (!isAnswerChecked) {
         checkPracticeAnswer();
     } else {
+        // 오답 상태에서 사용자가 다음 문제로 넘어가려 할 때
         nextPracticeProblem();
     }
 }
@@ -273,25 +303,54 @@ function checkPracticeAnswer() {
     const p = problems[currentIndex];
     const userNum = parseInt(userVal, 10);
     const isCorrect = userNum === p.answer;
-
-    document.getElementById('submit-btn').classList.add('hidden');
-    document.getElementById('next-btn').classList.remove('hidden');
-    const kpAction = document.getElementById('btn-keypad-action');
-    if (kpAction) {
-        kpAction.innerText = "다음 ➔";
-        kpAction.className = "py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition active:scale-95 shadow-xs";
-    }
+    const elapsedSec = (elapsed / 1000).toFixed(1);
 
     const feedback = document.getElementById('feedback-box');
-    feedback.classList.remove('hidden');
+    feedback.classList.remove('hidden', 'animate-pop-feedback');
+    // 브라우저 리플로우 강제 트리거로 연속 정답 시에도 애니메이션이 항상 다시 실행되게 함
+    void feedback.offsetWidth;
+    feedback.classList.add('animate-pop-feedback');
+
+    const disp = document.getElementById('p-answer-display');
 
     if (isCorrect) {
         correctCount++;
-        feedback.className = 'p-4 rounded-xl text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200';
-        feedback.innerHTML = `🎉 정답입니다! (${(elapsed / 1000).toFixed(1)}초)`;
+        if (disp) {
+            disp.classList.add('flash-correct');
+        }
+
+        // 문구가 화면에 고정된 것처럼 보이지 않도록 문제 번호(Q1, Q2)와 초수를 매번 다이나믹하게 강조
+        feedback.className = 'p-3.5 rounded-xl text-sm font-bold bg-emerald-50 text-emerald-900 border-2 border-emerald-300 max-w-xs mx-auto shadow-sm flex items-center justify-center gap-2 animate-pop-feedback';
+        feedback.innerHTML = `
+            <span class="px-2 py-0.5 bg-emerald-600 text-white text-xs font-mono rounded-md shadow-2xs">Q${currentIndex + 1} 정답!</span>
+            <span class="text-emerald-800 text-xs sm:text-sm font-extrabold tracking-tight">🎉 맞았습니다 (${elapsedSec}초)</span>
+        `;
+
+        // 정답 시 번거로운 버튼 클릭 없이 0.45초 후 자동으로 다음 문제 직행
+        autoAdvanceTimer = setTimeout(() => {
+            nextPracticeProblem();
+        }, 450);
+
     } else {
-        feedback.className = 'p-4 rounded-xl text-sm font-semibold bg-rose-50 text-rose-800 border border-rose-200';
-        feedback.innerHTML = `❌ 아쉬워요! 정답은 <strong>${p.answer}</strong> 입니다.<br><small class="text-rose-600 font-normal mt-1 block">${p.strategyTip || ''}</small>`;
+        // 오답일 때는 올바른 정답과 풀이 힌트를 볼 수 있도록 화면을 멈추고 버튼 표시
+        document.getElementById('submit-btn').classList.add('hidden');
+        document.getElementById('next-btn').classList.remove('hidden');
+
+        const kpAction = document.getElementById('btn-keypad-action');
+        if (kpAction) {
+            kpAction.innerText = "다음 ➔";
+            kpAction.className = "py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition active:scale-95 shadow-xs";
+        }
+
+        feedback.className = 'p-4 rounded-xl text-sm font-semibold bg-rose-50 text-rose-800 border-2 border-rose-300 max-w-xs mx-auto animate-pop-feedback text-left';
+        feedback.innerHTML = `
+            <div class="flex items-center gap-1.5 font-bold text-rose-900 mb-1">
+                <span>❌ 아쉬워요!</span>
+                <span class="text-xs text-rose-600">(${elapsedSec}초)</span>
+            </div>
+            <div>정답은 <strong class="text-base text-rose-950 font-mono underline decoration-rose-400">${p.answer}</strong> 입니다.</div>
+            ${p.strategyTip ? `<div class="text-xs text-rose-600 font-normal mt-1.5 pt-1.5 border-t border-rose-200">💡 ${p.strategyTip}</div>` : ''}
+        `;
     }
 }
 
