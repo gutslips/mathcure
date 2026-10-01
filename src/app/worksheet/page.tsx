@@ -244,17 +244,17 @@ function WorksheetContent() {
           </div>
 
           {/* 핵심 액션 버튼 모음 */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
             <button
               onClick={() => handlePrint("worksheet")}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition shadow-sm active:scale-95"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition shadow-sm active:scale-95"
             >
               <Printer className="w-3.5 h-3.5" />
               문제지 인쇄
             </button>
             <button
               onClick={() => handlePrint("answers")}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 transition active:scale-95"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 transition active:scale-95"
             >
               <CheckSquare className="w-3.5 h-3.5 text-slate-600" />
               정답지 인쇄
@@ -262,10 +262,10 @@ function WorksheetContent() {
             <button
               onClick={handleSaveToArchive}
               disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition shadow-sm active:scale-95 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition shadow-sm active:scale-95 disabled:opacity-50"
             >
               <BookmarkPlus className="w-3.5 h-3.5" />
-              {isSaving ? "보관 중..." : "이 문제집 보관하기"}
+              {isSaving ? "보관 중..." : "문제집 보관하기"}
             </button>
             <button
               onClick={() =>
@@ -276,7 +276,7 @@ function WorksheetContent() {
                   studentName
                 )
               }
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition shadow-sm active:scale-95"
+              className="col-span-2 sm:col-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition shadow-sm active:scale-95"
             >
               <Share2 className="w-3.5 h-3.5" />
               온라인 시험 링크 & QR
@@ -326,89 +326,91 @@ function WorksheetContent() {
         )}
 
         {/* 생성 옵션 필드 그리드 */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              학생 이름
-            </label>
-            <input
-              type="text"
-              value={studentName}
-              onChange={(e) => setStudentName(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium focus:outline-none focus:border-slate-900"
-            />
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                학생 이름
+              </label>
+              <input
+                type="text"
+                value={studentName}
+                onChange={(e) => setStudentName(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium focus:outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                집중 훈련 유형
+              </label>
+              <select
+                value={targetType}
+                onChange={(e) => {
+                  setTargetType(e.target.value as ProblemType);
+                  setSelectedSaved(null);
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium bg-white focus:outline-none focus:border-slate-900"
+              >
+                <option value="divide5">÷5 큰 수 자동화 (추천)</option>
+                <option value="divide8">÷8 자동화</option>
+                <option value="divide4">÷4 자동화</option>
+                <option value="divide2">÷2 자동화</option>
+                <option value="divide10">÷10 자동화</option>
+                <option value="largeNumber">큰 수 자리값 처리</option>
+                <option value="mixed">초5 혼합 계산</option>
+                <option value="basic">기본 나눗셈</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                난이도
+              </label>
+              <select
+                value={difficulty}
+                onChange={(e) => {
+                  setDifficulty(Number(e.target.value));
+                  setSelectedSaved(null);
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium bg-white focus:outline-none focus:border-slate-900"
+              >
+                <option value={1}>Level 1 (원리/기초)</option>
+                <option value={2}>Level 2 (표준 숙달)</option>
+                <option value={3}>Level 3 (큰 수 확장)</option>
+                <option value={4}>Level 4 (고난도 혼합)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                문제 수
+              </label>
+              <select
+                value={problemCount}
+                onChange={(e) => {
+                  setProblemCount(Number(e.target.value));
+                  setSelectedSaved(null);
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium bg-white focus:outline-none focus:border-slate-900"
+              >
+                <option value={20}>20문제 (A4 1장 최적)</option>
+                <option value={10}>10문제 (간이 시험)</option>
+                <option value={30}>30문제 (집중 훈련)</option>
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              집중 훈련 유형
-            </label>
-            <select
-              value={targetType}
-              onChange={(e) => {
-                setTargetType(e.target.value as ProblemType);
-                setSelectedSaved(null);
-              }}
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium bg-white focus:outline-none focus:border-slate-900"
-            >
-              <option value="divide5">÷5 큰 수 자동화 (추천)</option>
-              <option value="divide8">÷8 자동화</option>
-              <option value="divide4">÷4 자동화</option>
-              <option value="divide2">÷2 자동화</option>
-              <option value="divide10">÷10 자동화</option>
-              <option value="largeNumber">큰 수 자리값 처리</option>
-              <option value="mixed">초5 혼합 계산</option>
-              <option value="basic">기본 나눗셈</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              난이도
-            </label>
-            <select
-              value={difficulty}
-              onChange={(e) => {
-                setDifficulty(Number(e.target.value));
-                setSelectedSaved(null);
-              }}
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium bg-white focus:outline-none focus:border-slate-900"
-            >
-              <option value={1}>Level 1 (원리/기초)</option>
-              <option value={2}>Level 2 (표준 숙달)</option>
-              <option value={3}>Level 3 (큰 수 확장)</option>
-              <option value={4}>Level 4 (고난도 혼합)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              문제 수
-            </label>
-            <select
-              value={problemCount}
-              onChange={(e) => {
-                setProblemCount(Number(e.target.value));
-                setSelectedSaved(null);
-              }}
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium bg-white focus:outline-none focus:border-slate-900"
-            >
-              <option value={20}>20문제 (A4 1장 최적)</option>
-              <option value={10}>10문제 (간이 시험)</option>
-              <option value={30}>30문제 (집중 훈련)</option>
-            </select>
-          </div>
-
-          <div className="flex flex-col justify-end">
+          <div className="pt-2 border-t border-slate-100">
             <button
               onClick={() => {
                 setSelectedSaved(null);
                 setRefreshKey((prev) => prev + 1);
               }}
-              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl text-xs transition active:scale-95"
+              className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition active:scale-98 flex items-center justify-center gap-2 shadow-sm"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              새 문제 세트 생성
+              <RefreshCw className="w-4 h-4" />
+              새 문제 세트 생성하기 (↺ 새로고침)
             </button>
           </div>
         </div>

@@ -223,15 +223,15 @@ try {
             </p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-            <button onclick="window.print()" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm active:scale-95">
+        <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+            <button onclick="window.print()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm active:scale-95">
                 <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-                A4 인쇄하기 (Ctrl+P)
+                A4 인쇄하기 <span class="hidden sm:inline">(Ctrl+P)</span>
             </button>
-            <button type="button" onclick="saveCurrentWorksheet()" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm active:scale-95">
+            <button type="button" onclick="saveCurrentWorksheet()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm active:scale-95">
                 ★ 이 문제집 보관하기
             </button>
-            <button type="button" onclick="openExamModal()" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm active:scale-95">
+            <button type="button" onclick="openExamModal()" class="col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm active:scale-95">
                 📱 온라인 시험 링크 & QR
             </button>
         </div>
@@ -255,42 +255,48 @@ try {
     </div>
 
     <!-- 옵션 폼 (페이지 리로드 없이 비동기 갱신) -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-100">
-        <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">훈련 유형</label>
-            <select id="gen-opt-type" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium bg-white">
-                <?php foreach (PROBLEM_TYPE_LABELS as $k => $label): ?>
-                    <option value="<?php echo $k; ?>" <?php echo $type === $k ? 'selected' : ''; ?>>
-                        <?php echo $label; ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+    <div class="mt-6 pt-6 border-t border-slate-100 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">훈련 유형</label>
+                <select id="gen-opt-type" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white">
+                    <?php foreach (PROBLEM_TYPE_LABELS as $k => $label): ?>
+                        <option value="<?php echo $k; ?>" <?php echo $type === $k ? 'selected' : ''; ?>>
+                            <?php echo $label; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 sm:contents">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">난이도</label>
+                    <select id="gen-opt-diff" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white">
+                        <option value="1" <?php echo $difficulty === 1 ? 'selected' : ''; ?>>Level 1 (기초)</option>
+                        <option value="2" <?php echo $difficulty === 2 ? 'selected' : ''; ?>>Level 2 (표준)</option>
+                        <option value="3" <?php echo $difficulty === 3 ? 'selected' : ''; ?>>Level 3 (심화)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">문항 수</label>
+                    <select id="gen-opt-count" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-white">
+                        <option value="20" <?php echo $count === 20 ? 'selected' : ''; ?>>20문제 (A4 1장 권장)</option>
+                        <option value="10" <?php echo $count === 10 ? 'selected' : ''; ?>>10문제 (간이 시험)</option>
+                        <option value="30" <?php echo $count === 30 ? 'selected' : ''; ?>>30문제 (집중 훈련)</option>
+                    </select>
+                </div>
+            </div>
         </div>
 
-        <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">난이도</label>
-            <select id="gen-opt-diff" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium bg-white">
-                <option value="1" <?php echo $difficulty === 1 ? 'selected' : ''; ?>>Level 1 (기초)</option>
-                <option value="2" <?php echo $difficulty === 2 ? 'selected' : ''; ?>>Level 2 (표준)</option>
-                <option value="3" <?php echo $difficulty === 3 ? 'selected' : ''; ?>>Level 3 (심화)</option>
-            </select>
-        </div>
-
-        <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">문항 수</label>
-            <select id="gen-opt-count" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium bg-white">
-                <option value="20" <?php echo $count === 20 ? 'selected' : ''; ?>>20문제 (A4 1장 권장)</option>
-                <option value="10" <?php echo $count === 10 ? 'selected' : ''; ?>>10문제 (간이 시험)</option>
-                <option value="30" <?php echo $count === 30 ? 'selected' : ''; ?>>30문제 (집중 훈련)</option>
-            </select>
-        </div>
-
-        <div class="flex items-end gap-2">
-            <button type="button" id="btn-generate-ajax" onclick="generateNewProblemsAsync()" class="w-full py-2 px-3 bg-slate-900 text-white font-semibold text-xs rounded-xl transition hover:bg-slate-800 active:scale-98">
-                새 문제 생성
+        <!-- 하단 액션 버튼: 모바일에서 길고 시원한 와이드 버튼으로 배치 -->
+        <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            <button type="button" id="btn-generate-ajax" onclick="generateNewProblemsAsync()" class="flex-1 py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl transition active:scale-98 flex items-center justify-center gap-2 shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <span>새 문제 세트 생성하기 (↺ 새로고침)</span>
             </button>
-            <button type="button" onclick="toggleArchiveView()" class="py-2 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold text-xs rounded-xl whitespace-nowrap transition">
-                보관함 (<?php echo count($saved_list); ?>)
+            <button type="button" onclick="toggleArchiveView()" class="py-3.5 px-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs sm:text-sm rounded-xl whitespace-nowrap transition flex items-center justify-center gap-1.5 shadow-2xs">
+                📁 보관함 목록 (<?php echo count($saved_list); ?>)
             </button>
         </div>
     </div>
@@ -359,13 +365,13 @@ try {
 <!-- ======================================================== -->
 
 <!-- [1페이지] 문제지 -->
-<div id="worksheet-page-1" class="a4-sheet bg-white p-8 sm:p-12 mb-8 border border-slate-200 sm:rounded-2xl shadow-sm text-slate-900 transition-opacity duration-300">
-    <div class="border-b-2 border-slate-900 pb-3 mb-6 flex justify-between items-end">
+<div id="worksheet-page-1" class="a4-sheet bg-white p-4 sm:p-12 mb-8 border border-slate-200 sm:rounded-2xl shadow-sm text-slate-900 transition-opacity duration-300">
+    <div class="border-b-2 border-slate-900 pb-3 mb-6 flex flex-col sm:flex-row justify-between sm:items-end gap-3">
         <div>
             <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
                 MATH CURE · 초5 나눗셈 자동화 프로젝트
             </span>
-            <h2 id="display-worksheet-title" class="text-2xl font-black text-slate-900 mt-0.5">
+            <h2 id="display-worksheet-title" class="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
                 <?php echo htmlspecialchars($is_saved_view && $saved_worksheet ? $saved_worksheet['title'] : ((PROBLEM_TYPE_LABELS[$type] ?? $type) . " 맞춤 훈련지")); ?>
             </h2>
             <span id="display-worksheet-subtitle" class="text-xs text-slate-600 font-medium">
@@ -373,7 +379,7 @@ try {
             </span>
         </div>
 
-        <div class="text-right text-xs space-y-1">
+        <div class="flex flex-wrap sm:flex-col sm:text-right gap-x-4 gap-y-1 text-xs">
             <div>
                 <span class="text-slate-500">학생 이름:</span>
                 <span class="font-bold underline underline-offset-4 inline-block min-w-[70px] text-center">
@@ -429,13 +435,13 @@ try {
 <div class="page-break"></div>
 
 <!-- [2페이지] 정답지 -->
-<div id="worksheet-page-2" class="a4-sheet bg-white p-8 sm:p-12 mb-8 border border-slate-200 sm:rounded-2xl shadow-sm text-slate-900 transition-opacity duration-300">
-    <div class="border-b-2 border-slate-900 pb-3 mb-6 flex justify-between items-end">
+<div id="worksheet-page-2" class="a4-sheet bg-white p-4 sm:p-12 mb-8 border border-slate-200 sm:rounded-2xl shadow-sm text-slate-900 transition-opacity duration-300">
+    <div class="border-b-2 border-slate-900 pb-3 mb-6 flex flex-col sm:flex-row justify-between sm:items-end gap-3">
         <div>
             <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
                 ANSWER KEY · 정답 및 빠른 채점표
             </span>
-            <h2 id="display-answers-title" class="text-2xl font-black text-slate-900 mt-0.5">
+            <h2 id="display-answers-title" class="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
                 <?php echo htmlspecialchars($is_saved_view && $saved_worksheet ? $saved_worksheet['title'] : ((PROBLEM_TYPE_LABELS[$type] ?? $type) . " 맞춤 훈련지")); ?> - [ 정답지 ]
             </h2>
             <span id="display-answers-subtitle" class="text-xs text-slate-600 font-medium">
@@ -443,7 +449,7 @@ try {
             </span>
         </div>
 
-        <div class="text-right text-xs">
+        <div class="text-left sm:text-right text-xs">
             <span class="px-2 py-1 bg-slate-100 border border-slate-300 rounded font-bold">
                 교사용 / 채점용
             </span>
